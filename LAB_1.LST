@@ -1,0 +1,78 @@
+Turbo Assembler	 Version 4.1	    04/07/25 14:22:35	    Page 1
+lab_1.asm
+
+
+
+      1	0000			     sseg segment stack	'stack'
+      2	0000  0100*(????)		 dw 256	dup(?)
+      3	0200			     sseg ends
+      4
+      5	0000			     data segment
+      6	0000  05			 start_value db	5
+      7	0001  ??			 current_value db ?
+      8
+      9	0002			     data ends
+     10
+     11	0000			     code segment
+     12				     assume cs:code, ds:data, ss:sseg
+     13
+     14				     DEC_AND_JMP MACRO reg, lim, label
+     15					 dec reg
+     16					 cmp reg, lim
+     17					 je label
+     18				     ENDM
+     19
+     20	0000			     start:
+     21	0000  B8 0000s			 mov ax, data
+     22	0003  8E D8			 mov ds, ax
+     23
+     24	0005  8A 0E 0000r		 mov cl, start_value
+     25	0009  88 0E 0001r		 mov current_value, cl
+     26
+     27	000D			     BEGIN_LOOP:
+     28					 DEC_AND_JMP current_value, 2, END_LOOP
+1    29	000D  FE 0E 0001r		 dec current_value
+1    30	0011  80 3E 0001r 02		 cmp current_value, 2
+1    31	0016  74 02			 je END_LOOP
+     32					 ; mov current_value, cl
+     33	0018  EB F3			 jmp BEGIN_LOOP
+     34
+     35	001A			     END_LOOP:
+     36					 ; mov current_value, cl
+     37	001A  B8 4C00			 mov ax, 4C00h
+     38	001D  CD 21			 int 21h
+     39
+     40	001F			     code ends
+     41				     end start
+Turbo Assembler	 Version 4.1	    04/07/25 14:22:35	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??DATE				  Text	 "04/07/25"
+??FILENAME			  Text	 "lab_1	  "
+??TIME				  Text	 "14:22:35"
+??VERSION			  Number 040A
+@CPU				  Text	 0101H
+@CURSEG				  Text	 CODE
+@FILENAME			  Text	 LAB_1
+@WORDSIZE			  Text	 2
+BEGIN_LOOP			  Near	 CODE:000D
+CURRENT_VALUE			  Byte	 DATA:0001
+END_LOOP			  Near	 CODE:001A
+START				  Near	 CODE:0000
+START_VALUE			  Byte	 DATA:0000
+
+Macro Name
+
+DEC_AND_JMP
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+CODE				  16  001F Para	  none
+DATA				  16  0002 Para	  none
+SSEG				  16  0200 Para	  Stack	  STACK
+

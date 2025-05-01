@@ -1,0 +1,230 @@
+Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 1
+lab_0.asm
+
+
+
+      1				     ; sseg segment stack 'stack'
+      2				     ;	dw 256 dup(?)
+      3				     ; sseg ends
+      4
+      5				     ; data segment
+      6				     ; msg1 db 10,13,'Programm a-b',10,13,'a: ','$'
+      7				     ; msg2 db 10,13,'b: ','$'
+      8				     ; msg3 db 10,13,'a-b = ','$'
+      9				     ; data ends
+     10
+     11				     ; code segment
+     12				     ; assume cs:code,ds:data,ss:sseg
+     13				     ; start:
+     14				     ;	mov ax,data
+     15				     ;	mov ds,ax
+     16				     ;	lea dx,msg1
+     17				     ;	call print_msg
+     18				     ;	call input_digit
+     19				     ;	mov bl,al
+     20				     ;	lea dx,msg2
+     21				     ;	call print_msg
+     22				     ;	call input_digit
+     23				     ;	lea dx,msg3
+     24				     ;	call print_msg
+     25				     ;	call sub_and_show
+     26				     ;	mov ah,4ch
+     27				     ;	int 21h
+     28
+     29				     ; print_msg proc
+     30				     ;	push ax
+     31				     ;	mov ah,09h
+     32				     ;	int 21h
+     33				     ;	pop ax
+     34				     ;	ret
+     35				     ; print_msg endp
+     36
+     37				     ; input_digit proc
+     38				     ; input_again:
+     39				     ;	mov ah,01h
+     40				     ;	int 21h
+     41				     ;	cmp al,'0'
+     42				     ;	jl input_again
+     43				     ;	cmp al,'9'
+     44				     ;	jg input_again
+     45				     ;	sub al,30h
+     46				     ;	ret
+     47				     ; input_digit endp
+     48
+     49				     ; sub_and_show proc
+     50				     ;	sub bl,al ; Вычитание (BL = BL	- AL)
+     51				     ;	jns not_carry ;	Если результат не отрицательный, перейти +
+     52				     к	not_carry
+     53				     ;	neg bl ; Инвертировать результат,	если отрицательный
+     54				     ;	mov ah,2h
+     55				     ;	mov dl,'-' ; Вывести знак минус
+     56				     ;	int 21h
+     57				     ; not_carry:
+Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 2
+lab_0.asm
+
+
+
+     58				     ;	add bl,30h ; Преобразовать	число в символ
+     59				     ;	mov ah,2h
+     60				     ;	mov dl,bl ; Вывести результат
+     61				     ;	int 21h
+     62				     ;	ret
+     63				     ; sub_and_show endp
+     64
+     65				     ; code ends
+     66				     ; end start
+     67
+     68
+     69
+     70
+     71	0000			     sseg segment stack	'stack'	 ; Сегмент стека
+     72	0000  0100*(????)		 dw 256	dup(?)		 ; Резервируем 256 слов для стека
+     73	0200			     sseg ends
+     74
+     75	0000			     data segment		 ; Сегмент данных
+     76	0000  0003			 lim dw	3		 ; Константа LIM = 3 (теперь слово)
+     77	0002  0A 0D 50 72 6F 67	72+	 msg1 db 10,13,'Programm: DEC_AND_JUMP',10,13,'$'
+     78	      61 6D 6D 3A 20 44	45+
+     79	      43 5F 41 4E 44 5F	4A+
+     80	      55 4D 50 0A 0D 24
+     81	001D  0A 0D 43 58 20 3D	20+	 msg2 db 10,13,'CX = 5,	LIM = 3',10,13,'$'
+     82	      35 2C 20 4C 49 4D	20+
+     83	      3D 20 33 0A 0D 24
+     84	0031  0A 0D 43 58 20 61	66+	 msg3 db 10,13,'CX after decrement: ','$'
+     85	      74 65 72 20 64 65	63+
+     86	      72 65 6D 65 6E 74	3A+
+     87	      20 24
+     88	0048			     data ends
+     89
+     90	0000			     code segment		 ; Сегмент кода
+     91				     assume cs:code, ds:data, ss:sseg
+     92
+     93	0000			     start:
+     94	0000  B8 0000s			 mov ax, data		 ; Загружаем адрес сегмента данных в AX
+     95	0003  8E D8			 mov ds, ax		 ; Устанавливаем DS на сегмент данных
+     96
+     97					 ; Выводим сообщение о	программе
+     98	0005  BA 0002r			 lea dx, msg1
+     99	0008  E8 0018			 call print_msg
+    100
+    101					 ; Выводим начальные значения
+    102	000B  BA 001Dr			 lea dx, msg2
+    103	000E  E8 0012			 call print_msg
+    104
+    105					 ; Инициализируем	CX = 5
+    106	0011  B9 0005			 mov cx, 5
+    107
+    108	0014			     begin:
+    109					 ; Выводим текущее значение CX
+    110	0014  BA 0031r			 lea dx, msg3
+    111	0017  E8 0009			 call print_msg
+    112	001A  E8 000D			 call show_cx
+    113
+    114					 ; Вызов макроса: уменьшаем CX на 1, переходим к exit,	    +
+Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 3
+lab_0.asm
+
+
+
+    115				     если CX == LIM
+    116					 dec_and_jump cx, lim, exit
+1   117	001D  49			 dec cx			; Уменьшаем регистр на 1
+1   118	001E  3B 0E 0000r		 cmp cx, lim		; Сравниваем с lim
+1   119	0022  74 FB			 je exit	   ; Переходим	к метке, если	равны
+1   120	0024			     ??0000:
+    121
+    122					 ; Возвращаемся к метке begin
+    123	0024  EB EE			 jmp begin
+    124
+    125	0026			     exit:
+**Error** lab_0.asm(111) Symbol	already	defined	elsewhere: EXIT
+    126					 ; Завершение	программы
+    127	0026  B4 4C			 mov ah, 4ch
+    128	0028  CD 21			 int 21h
+    129
+    130				     ; Процедура для вывода сообщения
+    131	002A			     print_msg proc
+**Error** lab_0.asm(117) Symbol	already	defined	elsewhere: PRINT_MSG
+    132	002A  50			 push ax
+    133	002B  B4 09			 mov ah, 09h		 ; Функция DOS для вывода строки
+    134	002D  CD 21			 int 21h
+    135	002F  58			 pop ax
+    136	0030  C3			 ret
+    137	0031			     print_msg endp
+    138
+    139				     ; Процедура для вывода значения CX
+    140	0031			     show_cx proc
+**Error** lab_0.asm(126) Symbol	already	defined	elsewhere: SHOW_CX
+    141	0031  50			 push ax
+    142	0032  52			 push dx
+    143	0033  B4 02			 mov ah, 02h		 ; Функция DOS для вывода символа
+    144	0035  8A D5			 mov dl, ch		 ; Выводим старший байт CX (если нужно)
+    145	0037  80 C2 30			 add dl, 30h		 ; Преобразуем число в	символ
+    146	003A  CD 21			 int 21h
+    147	003C  8A D1			 mov dl, cl		 ; Выводим младший байт CX
+    148	003E  80 C2 30			 add dl, 30h		 ; Преобразуем число в	символ
+    149	0041  CD 21			 int 21h
+    150	0043  5A			 pop dx
+    151	0044  58			 pop ax
+    152	0045  C3			 ret
+    153	0046			     show_cx endp
+    154
+    155				     ; Макрос для декремента	и перехода
+    156				     dec_and_jump macro	reg, lim, dest_label
+*Warning* lab_0.asm(142) Pass-dependent	construction encountered: DEC_AND_JUMP
+    157					 local skip_jump	 ; Локальная метка
+    158					 dec reg		 ; Уменьшаем регистр на 1
+    159					 cmp reg, lim		 ; Сравниваем	с LIM
+    160					 je dest_label		 ; Переходим к метке, если равны
+    161				     skip_jump:
+    162				     endm
+    163
+    164	0046			     code ends
+    165				     end start
+Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 4
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??0000				  Near	 CODE:0024
+??DATE				  Text	 "03/24/25"
+??FILENAME			  Text	 "lab_0	  "
+??TIME				  Text	 "13:07:25"
+??VERSION			  Number 040A
+@CPU				  Text	 0101H
+@CURSEG				  Text	 CODE
+@FILENAME			  Text	 LAB_0
+@WORDSIZE			  Text	 2
+BEGIN				  Near	 CODE:0014
+EXIT				  Near	 CODE:001F
+LIM				  Word	 DATA:0000
+MSG1				  Byte	 DATA:0002
+MSG2				  Byte	 DATA:001D
+MSG3				  Byte	 DATA:0031
+PRINT_MSG			  Near	 CODE:0023
+SHOW_CX				  Near	 CODE:002A
+START				  Near	 CODE:0000
+
+Macro Name
+
+DEC_AND_JUMP
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+CODE				  16  0046 Para	  none
+DATA				  16  0048 Para	  none
+SSEG				  16  0200 Para	  Stack	  STACK
+Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 5
+Error Summary
+
+
+
+**Error** lab_0.asm(111) Symbol	already	defined	elsewhere: EXIT
+**Error** lab_0.asm(117) Symbol	already	defined	elsewhere: PRINT_MSG
+**Error** lab_0.asm(126) Symbol	already	defined	elsewhere: SHOW_CX
+*Warning* lab_0.asm(142) Pass-dependent	construction encountered: DEC_AND_JUMP
+
