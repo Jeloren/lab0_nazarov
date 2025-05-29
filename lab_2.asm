@@ -1,46 +1,48 @@
-.MODEL SMALL
-.STACK 100h
+.model small
+.stack 100h
 
-EXTRN InsBlanks: FAR
+.data
+    ; Тестовые данные
+    test_empty    db 0                 ; Пустая строка
+    len_empty     db 5
 
-.DATA
-    S      DB 11, 'Hello world'   ; Исходная строка
-    Len    DB 20                  ; Желаемая длина
-    Result DB 255 DUP(?)          ; Результат (первый байт — длина)
-    EndStr DB '$'                 ; Символ конца строки для вывода
+    test_no_spc  db 3, 'abc'          ; Строка без пробелов
+    len_no_spc   db 5
 
-.CODE
-Start:
+    test_with_spc db 5, 'a b c'       ; Строка с пробелами
+    len_with_spc  db 8
+
+    result       db 255 dup(?)        ; Буфер для результата
+
+.code
+extrn InsBlanks:proc
+
+main proc
     mov ax, @data
     mov ds, ax
+    mov es, ax
 
-    ; Вызов InsBlanks(S, Len, Result)
-    push ds
-    lea ax, S
-    push ax
-    xor ax, ax                   ; Очистка AX
-    mov al, Len                  ; Загрузка Len в AL
-    push ax                      ; Передаём Len как слово
-    push ds
-    lea ax, Result
-    push ax
+    ; Тест 1: Пустая строка
+    mov si, offset test_empty
+    mov al, len_empty
+    mov di, offset result
     call InsBlanks
 
-    ; Добавляем символ '$' в конец строки Result
-    mov si, offset Result
-    xor cx, cx
-    mov cl, [si]                ; Загружаем длину строки из Result[0]
-    lea di, [si + 1]            ; DI указывает на начало строки (после байта длины)
-    add di, cx                   ; DI = конец строки
-    mov byte ptr [di], '$'       ; Записываем '$'
+    ; Тест 2: Строка без пробелов
+    mov si, offset test_no_spc
+    mov al, len_no_spc
+    mov di, offset result
+    call InsBlanks
 
-    ; Вывод результата
-    mov ah, 09h
-    lea dx, [si + 1]            ; Пропускаем байт длины
-    int 21h
+    ; Тест 3: Строка с пробелами
+    mov si, offset test_with_spc
+    mov al, len_with_spc
+    mov di, offset result
+    call InsBlanks
 
     ; Завершение программы
     mov ax, 4C00h
     int 21h
+main endp
 
-END Start
+end main

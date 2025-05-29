@@ -1,159 +1,152 @@
-Turbo Assembler	 Version 4.1	    04/27/25 16:59:45	    Page 1
+Turbo Assembler	 Version 4.1	    05/05/25 14:38:58	    Page 1
 prog.asm
 
 
 
-      1	0000			     .MODEL LARGE
-      2	0000			     .CODE
-      3
-      4				     PUBLIC InsBlanks
-      5
-      6	0000			     InsBlanks PROC FAR
-      7					 ; Параметры в стеке:
-      8					 ; [BP+6]  - Смещение строки S
-      9					 ; [BP+8]  - Сегмент строки S
-     10					 ; [BP+10] - Длина	Len (слово, но используем только		    +
-     11				     младший байт)
-     12					 ; [BP+12] - Смещение результата Res
-     13					 ; [BP+14] - Сегмент результата Res
+      1	0000			     .model small
+      2	0000			     .code
+      3				     public InsBlanks
+      4
+      5	0000			     InsBlanks proc near
+      6	0000  50			 push ax
+      7	0001  53			 push bx
+      8	0002  51			 push cx
+      9	0003  52			 push dx
+     10	0004  56			 push si
+     11	0005  57			 push di
+     12	0006  55			 push bp
+     13	0007  FC			 cld
      14
-     15	0000  55			 push bp
-     16	0001  8B EC			 mov bp, sp
-     17	0003  1E			 push ds
-     18	0004  06			 push es
-     19	0005  56			 push si
-     20	0006  57			 push di
-     21	0007  50			 push ax
-     22	0008  53			 push bx
-     23	0009  51			 push cx
-     24	000A  52			 push dx
-     25
-     26					 ; Загрузка адреса исходной строки S в DS:SI
-     27	000B  C5 76 06			 lds si, [bp+6]	    ; DS:SI = S
-     28
-     29					 ; Загрузка адреса результата Res в ES:DI
-     30	000E  C4 7E 0C			 les di, [bp+12]    ; ES:DI = Res
-     31
-     32					 ; Копирование исходной строки	S в Res
-     33	0011  8A 0C			 mov cl, [si]	    ; Длина S
-     34	0013  B5 00			 mov ch, 0
-     35	0015  26: 88 0D			 mov es:[di], cl    ; Сохраняем длину в Res
-     36	0018  47			 inc di		    ; Пропускаем байт длины
-     37	0019  46			 inc si		    ; Пропускаем байт длины в S
-     38	001A  E3 09			 jcxz CopyDone	    ; Если строка пустая
-     39
-     40	001C			     CopyLoop:
-     41	001C  8A 04			 mov al, [si]
-     42	001E  26: 88 05			 mov es:[di], al
-     43	0021  46			 inc si
-     44	0022  47			 inc di
-     45	0023  E2 F7			 loop CopyLoop
-     46
-     47	0025			     CopyDone:
-     48					 ; Проверяем, нужно ли добавлять пробелы
-     49	0025  C4 7E 0C			 les di, [bp+12]    ; ES:DI = Res (байт длины)
-     50	0028  26: 8A 05			 mov al, es:[di]    ; Текущая длина	Res
-     51	002B  3A 46 0A			 cmp al, [bp+10]    ; Сравниваем с Len
-     52	002E  73 50			 jae Exit	    ; Если длина >= Len, выход
-     53
-     54					 ; Вычисляем количество пробелов для добавления
-     55	0030  8A 5E 0A			 mov bl, [bp+10]    ; Целевая длина
-     56	0033  2A D8			 sub bl, al	    ; BL = delta
-     57
-Turbo Assembler	 Version 4.1	    04/27/25 16:59:45	    Page 2
+     15					 ; Проверка на пустую строку
+     16	0008  8A 0C			 mov cl, [si]
+     17	000A  84 C9			 test cl, cl
+     18	000C  74 7D			 jz short exit
+     19
+     20					 ; Проверка длины
+     21	000E  3A C8			 cmp cl, al
+     22	0010  73 71			 jae copy_original
+     23
+     24					 ; Вычисление	delta
+     25	0012  8A D0			 mov dl, al
+     26	0014  2A D1			 sub dl, cl	     ; dl = delta
+     27
+     28					 ; Копирование исходной строки	в буфер
+     29	0016  57			 push di
+     30	0017  88 0D			 mov [di], cl	     ; Копируем	длину
+     31	0019  47			 inc di
+     32	001A  46			 inc si
+     33	001B  B5 00			 mov ch, 0
+     34	001D  F3> A4			 rep movsb
+     35	001F  5F			 pop di		     ; DI указывает на буфер
+     36	0020  4E			 dec si		     ; Восстановить	SI
+     37
+     38					 ; Подсчет пробелов
+     39	0021  8B F7			 mov si, di
+     40	0023  46			 inc si		     ; Начало данных
+     41	0024  8A 0D			 mov cl, [di]
+     42	0026  33 DB			 xor bx, bx	     ; Счетчик пробелов
+     43	0028  33 D2			 xor dx, dx	     ; Индекс символа
+     44	002A			     count_loop:
+     45	002A  AC			 lodsb
+     46	002B  3C 20			 cmp al, ' '
+     47	002D  75 01			 jne next_char
+     48	002F  43			 inc bx
+     49	0030			     next_char:
+     50	0030  42			 inc dx
+     51	0031  E2 F7			 loop count_loop
+     52
+     53					 ; Проверка наличия пробелов
+     54	0033  85 DB			 test bx, bx
+     55	0035  74 41			 jz add_end
+     56
+     57					 ; Защита	от деления на ноль
+Turbo Assembler	 Version 4.1	    05/05/25 14:38:58	    Page 2
 prog.asm
 
 
 
-     58	0035			     AddSpaces:
-     59					 ; Поиск позиций для вставки пробелов между словами
-     60	0035  26: 8B 0D			 mov cx, es:[di]    ; Текущая длина
-     61	0038  B5 00			 mov ch, 0
-     62	003A  47			 inc di		    ; ES:DI указывает на первый символ
-     63
-     64	003B			     FindInsertPos:
-     65	003B  8B F7			 mov si, di	    ; ES:SI = начало строки
-     66	003D  03 F1			 add si, cx	    ; ES:SI = конец строки
-     67	003F  4E			 dec si		    ; Последний символ
+     58	0037  84 DB			 test bl, bl
+     59	0039  74 3D			 jz add_end
+     60
+     61					 ; Распределение пробелов
+     62	003B  8B CA			 mov cx, dx	     ; delta
+     63	003D  8A C2			 mov al, dl
+     64	003F  32 E4			 xor ah, ah
+     65	0041  F6 F3			 div bl		     ; AL = quotient, AH = remainder
+     66	0043  8A F4			 mov dh, ah	     ; remainder
+     67	0045  8A D0			 mov dl, al	     ; quotient
      68
-     69	0040  BA 0000			 mov dx, 0	    ; Индекс текущего символа
-     70
-     71	0043			     CheckLoop:
-     72	0043  3B D1			 cmp dx, cx
-     73	0045  73 37			 jae EndCheck	    ; Пройдена вся строка
-     74
-     75	0047  26: 8A 04			 mov al, es:[si]
-     76	004A  3C 20			 cmp al, ' '
-     77	004C  75 2C			 jne NextChar	    ; Текущий символ не пробел
-     78
-     79					 ; Проверяем предыдущий символ
-     80	004E  83 FA 00			 cmp dx, 0
-     81	0051  74 27			 je NextChar	    ; Первый символ	- пробел,	пропускаем
-     82
-     83	0053  26: 8A 44	FF		 mov al, es:[si-1]
-     84	0057  3C 20			 cmp al, ' '
-     85	0059  74 1F			 je NextChar	    ; Предыдущий тоже пробел, пропускаем
-     86
-     87					 ; Нашли место для	вставки (пробел между	словами)
-     88					 ; Вставляем пробел
-     89	005B  51			 push cx
-     90	005C  56			 push si
-     91	005D  57			 push di
-     92
-     93					 ; Сдвигаем символы вправо
-     94	005E  8B FE			 mov di, si
-     95	0060  47			 inc di		    ; Куда сдвигать
-     96	0061  8B C9			 mov cx, cx	    ; CX = текущая длина
-     97	0063  2B CA			 sub cx, dx	    ; Сколько символов сдвигать
-     98	0065  FD			 std		    ; Направление с	конца
-     99	0066  F3> A4			 rep movsb
-    100	0068  FC			 cld
-    101
-    102					 ; Вставляем пробел
-    103	0069  26: C6 04	20		 mov byte ptr es:[si], ' '
+     69					 ; Вставка пробелов
+     70	0047  8B F7			 mov si, di
+     71	0049  46			 inc si		     ; Начало данных
+     72	004A  8A 0D			 mov cl, [di]
+     73	004C  32 ED			 xor ch, ch
+     74	004E			     insert_loop:
+     75	004E  51			 push cx
+     76	004F  56			 push si
+     77	0050  8A 0D			 mov cl, [di]
+     78	0052  8B F7			 mov si, di
+     79	0054  46			 inc si
+     80	0055			     search_spc:
+     81	0055  AC			 lodsb
+     82	0056  3C 20			 cmp al, ' '
+     83	0058  75 16			 jne skip
+     84	005A  4B			 dec bx
+     85	005B  75 13			 jnz skip
+     86					 ; Вставка пробелов
+     87	005D  B0 20			 mov al, ' '
+     88	005F  8B CA			 mov cx, dx
+     89	0061  02 CE			 add cl, dh
+     90	0063  E3 0B			 jcxz skip
+     91	0065			     insert_space:
+     92	0065  AA			 stosb
+     93					 ; Обновление	длины строки
+     94	0066  8A 45 FF			 mov al, [di-1]
+     95	0069  FE C0			 inc al
+     96	006B  88 45 FF			 mov [di-1], al
+     97	006E  E2 F5			 loop insert_space
+     98	0070			     skip:
+     99	0070  E2 E3			 loop search_spc
+    100	0072  5E			 pop si
+    101	0073  59			 pop cx
+    102	0074  E2 D8			 loop insert_loop
+    103	0076  EB 13			 jmp short exit
     104
-    105					 ; Увеличиваем длину строки
-    106	006D  C4 7E 0C			 les di, [bp+12]
-    107	0070  26: FE 05			 inc byte ptr es:[di]
-    108
-    109					 ; Уменьшаем delta
-    110	0073  FE CB			 dec bl
-    111	0075  74 09			 jz Exit	    ; Если пробелы добавлены
-    112
-    113	0077  5F			 pop di
-    114	0078  5E			 pop si
-Turbo Assembler	 Version 4.1	    04/27/25 16:59:45	    Page 3
+    105	0078			     add_end:
+    106					 ; Добавление	пробелов в конец
+    107	0078  B0 20			 mov al, ' '
+    108	007A  8A CA			 mov cl, dl
+    109	007C  02 CE			 add cl, dh
+    110	007E  F3> AA			 rep stosb
+    111					 ; Обновление	длины строки
+    112	0080  88 4D FF			 mov [di-1], cl
+    113
+    114	0083			     copy_original:
+Turbo Assembler	 Version 4.1	    05/05/25 14:38:58	    Page 3
 prog.asm
 
 
 
-    115	0079  59			 pop cx
-    116
-    117	007A			     NextChar:
-    118	007A  42			 inc dx
-    119	007B  46			 inc si
-    120	007C  EB C5			 jmp CheckLoop
+    115					 ; Копирование исходной строки
+    116	0083  8A 0C			 mov cl, [si]
+    117	0085  88 0D			 mov [di], cl
+    118	0087  47			 inc di
+    119	0088  46			 inc si
+    120	0089  F3> A4			 rep movsb
     121
-    122	007E			     EndCheck:
-    123					 ; Если пробелы ещё нужно добавить
-    124	007E  EB B5			 jmp AddSpaces
-    125
-    126	0080			     Exit:
-    127	0080  5A			 pop dx
-    128	0081  59			 pop cx
-    129	0082  5B			 pop bx
-    130	0083  58			 pop ax
-    131	0084  5F			 pop di
-    132	0085  5E			 pop si
-    133	0086  07			 pop es
-    134	0087  1F			 pop ds
-    135	0088  5D			 pop bp
-    136	0089  CA 000A			 retf 10	    ; Удаляем параметры	из стека	(4 + 2 + 4 = 10	    +
-    137				     байт)
-    138	008C			     InsBlanks ENDP
-    139
-    140				     END
-Turbo Assembler	 Version 4.1	    04/27/25 16:59:45	    Page 4
+    122	008B			     exit:
+    123	008B  5D			 pop bp
+    124	008C  5F			 pop di
+    125	008D  5E			 pop si
+    126	008E  5A			 pop dx
+    127	008F  59			 pop cx
+    128	0090  5B			 pop bx
+    129	0091  58			 pop ax
+    130	0092  C3			 ret
+    131	0093			     InsBlanks endp
+    132
+    133				     end
+Turbo Assembler	 Version 4.1	    05/05/25 14:38:58	    Page 4
 Symbol Table
 
 
@@ -161,35 +154,36 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??DATE				  Text	 "04/27/25"
+??DATE				  Text	 "05/05/25"
 ??FILENAME			  Text	 "prog	  "
-??TIME				  Text	 "16:59:45"
+??TIME				  Text	 "14:38:58"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
-@CODE				  Text	 PROG_TEXT
-@CODESIZE			  Text	 1
+@CODE				  Text	 _TEXT
+@CODESIZE			  Text	 0
 @CPU				  Text	 0101H
-@CURSEG				  Text	 PROG_TEXT
+@CURSEG				  Text	 _TEXT
 @DATA				  Text	 DGROUP
-@DATASIZE			  Text	 1
+@DATASIZE			  Text	 0
 @FILENAME			  Text	 PROG
 @INTERFACE			  Text	 000H
-@MODEL				  Text	 5
+@MODEL				  Text	 2
 @STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-ADDSPACES			  Near	 PROG_TEXT:0035
-CHECKLOOP			  Near	 PROG_TEXT:0043
-COPYDONE			  Near	 PROG_TEXT:0025
-COPYLOOP			  Near	 PROG_TEXT:001C
-ENDCHECK			  Near	 PROG_TEXT:007E
-EXIT				  Near	 PROG_TEXT:0080
-FINDINSERTPOS			  Near	 PROG_TEXT:003B
-INSBLANKS			  Far	 PROG_TEXT:0000
-NEXTCHAR			  Near	 PROG_TEXT:007A
+ADD_END				  Near	 _TEXT:0078
+COPY_ORIGINAL			  Near	 _TEXT:0083
+COUNT_LOOP			  Near	 _TEXT:002A
+EXIT				  Near	 _TEXT:008B
+INSBLANKS			  Near	 _TEXT:0000
+INSERT_LOOP			  Near	 _TEXT:004E
+INSERT_SPACE			  Near	 _TEXT:0065
+NEXT_CHAR			  Near	 _TEXT:0030
+SEARCH_SPC			  Near	 _TEXT:0055
+SKIP				  Near	 _TEXT:0070
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
   _DATA				  16  0000 Word	  Public  DATA
-PROG_TEXT			  16  008C Word	  Public  CODE
+_TEXT				  16  0093 Word	  Public  CODE
 

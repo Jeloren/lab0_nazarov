@@ -1,188 +1,243 @@
-Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 1
+Turbo Assembler	 Version 4.1	    05/28/25 14:06:25	    Page 1
 lab_0.asm
 
 
 
-      1				     ; sseg segment stack 'stack'
-      2				     ;	dw 256 dup(?)
-      3				     ; sseg ends
-      4
-      5				     ; data segment
-      6				     ; msg1 db 10,13,'Programm a-b',10,13,'a: ','$'
-      7				     ; msg2 db 10,13,'b: ','$'
-      8				     ; msg3 db 10,13,'a-b = ','$'
-      9				     ; data ends
-     10
-     11				     ; code segment
-     12				     ; assume cs:code,ds:data,ss:sseg
-     13				     ; start:
-     14				     ;	mov ax,data
-     15				     ;	mov ds,ax
-     16				     ;	lea dx,msg1
-     17				     ;	call print_msg
-     18				     ;	call input_digit
-     19				     ;	mov bl,al
-     20				     ;	lea dx,msg2
-     21				     ;	call print_msg
-     22				     ;	call input_digit
-     23				     ;	lea dx,msg3
-     24				     ;	call print_msg
-     25				     ;	call sub_and_show
-     26				     ;	mov ah,4ch
-     27				     ;	int 21h
-     28
-     29				     ; print_msg proc
-     30				     ;	push ax
-     31				     ;	mov ah,09h
-     32				     ;	int 21h
-     33				     ;	pop ax
-     34				     ;	ret
-     35				     ; print_msg endp
-     36
-     37				     ; input_digit proc
-     38				     ; input_again:
-     39				     ;	mov ah,01h
-     40				     ;	int 21h
-     41				     ;	cmp al,'0'
-     42				     ;	jl input_again
-     43				     ;	cmp al,'9'
-     44				     ;	jg input_again
-     45				     ;	sub al,30h
-     46				     ;	ret
-     47				     ; input_digit endp
-     48
-     49				     ; sub_and_show proc
-     50				     ;	sub bl,al ; Вычитание (BL = BL	- AL)
-     51				     ;	jns not_carry ;	Если результат не отрицательный, перейти +
-     52				     к	not_carry
-     53				     ;	neg bl ; Инвертировать результат,	если отрицательный
-     54				     ;	mov ah,2h
-     55				     ;	mov dl,'-' ; Вывести знак минус
-     56				     ;	int 21h
-     57				     ; not_carry:
-Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 2
+      1	0000			     .model small
+      2	0000			     .stack 100h
+      3
+      4	0000			     .data
+      5	0000  61 20 62 20 62 20	63+	 input_string  db 'a b b c d d',0   ; Входная строка с нулевым	    +
+      6	      20 64 20 64 00	     окончанием
+      7	000C  0014			 k	       dw 20		    ; Параметр k
+      8	000E  0000			 word_count    dw 0		    ; Количество слов
+      9	0010  14*(0000)			 words	       dw 20 dup(0)	    ; Массив указателей	на слова
+     10	0038  0000			 total_len     dw 0		    ; Общая длина всех слов
+     11	003A  0000			 b	       dw 0		    ; Общее количество пробелов	    +
+     12				     для вставки
+     13	003C  0000			 p	       dw 0		    ; Базовое количество пробелов
+     14	003E  0000			 q	       dw 0		    ; Дополнительные пробелы
+     15	0040  0100*(24)			 result_buffer db 256 dup('$')	    ; Буфер результата			    +
+     16				     (завершается '$')
+     17	0140  0D 0A 24			 newline       db 13,10,'$'	    ; Перевод строки для вывода
+     18
+     19	0143			     .code
+     20	0000			     main proc
+     21	0000  B8 0000s			 mov ax, @data
+     22	0003  8E D8			 mov ds, ax
+     23	0005  8E C0			 mov es, ax
+     24
+     25	0007  E8 001D			 call split_string	  ; Разбиваем строку на слова
+     26	000A  E8 0047			 call calculate_total_len ; Вычисляем общую длину слов
+     27	000D  E8 006A			 call adjust_k		  ; Корректируем значение k
+     28	0010  E8 0077			 call calc_p_and_q	  ; Вычисляем p и q
+     29	0013  E8 009E			 call build_result	  ; Формируем результирующую строку
+     30
+     31					 ; Вывод результата
+     32	0016  B4 09			 mov ah, 09h
+     33	0018  BA 0040r			 lea dx, result_buffer
+     34	001B  CD 21			 int 21h
+     35
+     36					 ; Вывод перевода строки
+     37	001D  BA 0140r			 lea dx, newline
+     38	0020  CD 21			 int 21h
+     39
+     40					 ; Завершение	программы
+     41	0022  B8 4C00			 mov ax, 4C00h
+     42	0025  CD 21			 int 21h
+     43	0027			     main endp
+     44
+     45				     ; Разбиение строки на слова
+     46	0027			     split_string proc
+     47	0027  BE 0000r			 lea si, input_string	  ; SI = начало строки
+     48	002A  BF 0010r			 lea di, words		  ; DI = массив указателей
+     49	002D  33 C9			 xor cx, cx		  ; Счетчик слов = 0
+     50
+     51	002F			     skip_spaces:
+     52	002F  AC			 lodsb			  ; Загружаем символ
+     53	0030  3C 00			 cmp al, 0		  ; Конец строки?
+     54	0032  74 1B			 je split_end
+     55	0034  3C 20			 cmp al, ' '		  ; Пробел?
+     56	0036  74 F7			 je skip_spaces		  ; Пропускаем пробелы
+     57
+Turbo Assembler	 Version 4.1	    05/28/25 14:06:25	    Page 2
 lab_0.asm
 
 
 
-     58				     ;	add bl,30h ; Преобразовать	число в символ
-     59				     ;	mov ah,2h
-     60				     ;	mov dl,bl ; Вывести результат
-     61				     ;	int 21h
-     62				     ;	ret
-     63				     ; sub_and_show endp
+     58					 ; Нашли начало слова
+     59	0038  4E			 dec si			  ; Возвращаемся к	первому символу	    +
+     60				     слова
+     61	0039  89 35			 mov [di], si		  ; Сохраняем указатель на слово
+     62	003B  83 C7 02			 add di, 2		  ; Следующая позиция в массиве
+     63	003E  41			 inc cx			  ; Увеличиваем счетчик слов
      64
-     65				     ; code ends
-     66				     ; end start
-     67
-     68
-     69
-     70
-     71	0000			     sseg segment stack	'stack'	 ; Сегмент стека
-     72	0000  0100*(????)		 dw 256	dup(?)		 ; Резервируем 256 слов для стека
-     73	0200			     sseg ends
-     74
-     75	0000			     data segment		 ; Сегмент данных
-     76	0000  0003			 lim dw	3		 ; Константа LIM = 3 (теперь слово)
-     77	0002  0A 0D 50 72 6F 67	72+	 msg1 db 10,13,'Programm: DEC_AND_JUMP',10,13,'$'
-     78	      61 6D 6D 3A 20 44	45+
-     79	      43 5F 41 4E 44 5F	4A+
-     80	      55 4D 50 0A 0D 24
-     81	001D  0A 0D 43 58 20 3D	20+	 msg2 db 10,13,'CX = 5,	LIM = 3',10,13,'$'
-     82	      35 2C 20 4C 49 4D	20+
-     83	      3D 20 33 0A 0D 24
-     84	0031  0A 0D 43 58 20 61	66+	 msg3 db 10,13,'CX after decrement: ','$'
-     85	      74 65 72 20 64 65	63+
-     86	      72 65 6D 65 6E 74	3A+
-     87	      20 24
-     88	0048			     data ends
-     89
-     90	0000			     code segment		 ; Сегмент кода
-     91				     assume cs:code, ds:data, ss:sseg
-     92
-     93	0000			     start:
-     94	0000  B8 0000s			 mov ax, data		 ; Загружаем адрес сегмента данных в AX
-     95	0003  8E D8			 mov ds, ax		 ; Устанавливаем DS на сегмент данных
+     65	003F			     read_word:
+     66	003F  AC			 lodsb			  ; Читаем следующий символ
+     67	0040  3C 00			 cmp al, 0		  ; Конец строки?
+     68	0042  74 0A			 je word_end
+     69	0044  3C 20			 cmp al, ' '		  ; Пробел?
+     70	0046  75 F7			 jne read_word		  ; Продолжаем, если не	пробел
+     71
+     72					 ; Найден	пробел - конец слова
+     73	0048  C6 44 FF 00		 mov byte ptr [si-1], 0	  ; Заменяем пробел на 0
+     74	004C  EB E1			 jmp skip_spaces	  ; Ищем следующее	слово
+     75
+     76	004E			     word_end:
+     77	004E  4E			 dec si			  ; Корректируем позицию для		    +
+     78				     последнего слова
+     79	004F			     split_end:
+     80	004F  89 0E 000Er		 mov word_count, cx	  ; Сохраняем количество слов
+     81	0053  C3			 ret
+     82	0054			     split_string endp
+     83
+     84				     ; Вычисление общей длины слов
+     85	0054			     calculate_total_len proc
+     86	0054  8B 0E 000Er		 mov cx, word_count
+     87	0058  85 C9			 test cx, cx
+     88	005A  74 19			 jz no_words		  ; Если слов нет
+     89	005C  BE 0010r			 lea si, words		  ; SI = массив указателей
+     90	005F  33 D2			 xor dx, dx		  ; Общая длина = 0
+     91
+     92	0061			     word_loop:
+     93	0061  8B 3C			 mov di, [si]		  ; DI = текущее	слово
+     94	0063  83 C6 02			 add si, 2		  ; Следующий указатель
+     95	0066  33 C0			 xor ax, ax		  ; Длина слова = 0
      96
-     97					 ; Выводим сообщение о	программе
-     98	0005  BA 0002r			 lea dx, msg1
-     99	0008  E8 0018			 call print_msg
-    100
-    101					 ; Выводим начальные значения
-    102	000B  BA 001Dr			 lea dx, msg2
-    103	000E  E8 0012			 call print_msg
-    104
-    105					 ; Инициализируем	CX = 5
-    106	0011  B9 0005			 mov cx, 5
+     97	0068			     count_chars:
+     98	0068  80 3D 00			 cmp byte ptr [di], 0	  ; Конец слова?
+     99	006B  74 04			 je add_length
+    100	006D  40			 inc ax			  ; Увеличиваем длину
+    101	006E  47			 inc di			  ; Следующий символ
+    102	006F  EB F7			 jmp count_chars
+    103
+    104	0071			     add_length:
+    105	0071  03 D0			 add dx, ax		  ; Добавляем к общей длине
+    106	0073  E2 EC			 loop word_loop
     107
-    108	0014			     begin:
-    109					 ; Выводим текущее значение CX
-    110	0014  BA 0031r			 lea dx, msg3
-    111	0017  E8 0009			 call print_msg
-    112	001A  E8 000D			 call show_cx
-    113
-    114					 ; Вызов макроса: уменьшаем CX на 1, переходим к exit,	    +
-Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 3
+    108	0075			     no_words:
+    109	0075  89 16 0038r		 mov total_len,	dx	  ; Сохраняем результат
+    110	0079  C3			 ret
+    111	007A			     calculate_total_len endp
+    112
+    113				     ; Корректировка значения k
+    114	007A			     adjust_k proc
+Turbo Assembler	 Version 4.1	    05/28/25 14:06:25	    Page 3
 lab_0.asm
 
 
 
-    115				     если CX == LIM
-    116					 dec_and_jump cx, lim, exit
-1   117	001D  49			 dec cx			; Уменьшаем регистр на 1
-1   118	001E  3B 0E 0000r		 cmp cx, lim		; Сравниваем с lim
-1   119	0022  74 FB			 je exit	   ; Переходим	к метке, если	равны
-1   120	0024			     ??0000:
-    121
-    122					 ; Возвращаемся к метке begin
-    123	0024  EB EE			 jmp begin
+    115	007A  A1 000Er			 mov ax, word_count
+    116	007D  D1 E0			 shl ax, 1		  ; AX = 2 * word_count
+    117	007F  48			 dec ax			  ; AX = 2 * word_count	- 1
+    118	0080  3B 06 000Cr		 cmp ax, k		  ; Сравниваем с k
+    119	0084  76 03			 jbe adjust_end
+    120	0086  A3 000Cr			 mov k,	ax		  ; Обновляем k если нужно
+    121	0089			     adjust_end:
+    122	0089  C3			 ret
+    123	008A			     adjust_k endp
     124
-    125	0026			     exit:
-**Error** lab_0.asm(111) Symbol	already	defined	elsewhere: EXIT
-    126					 ; Завершение	программы
-    127	0026  B4 4C			 mov ah, 4ch
-    128	0028  CD 21			 int 21h
-    129
-    130				     ; Процедура для вывода сообщения
-    131	002A			     print_msg proc
-**Error** lab_0.asm(117) Symbol	already	defined	elsewhere: PRINT_MSG
-    132	002A  50			 push ax
-    133	002B  B4 09			 mov ah, 09h		 ; Функция DOS для вывода строки
-    134	002D  CD 21			 int 21h
-    135	002F  58			 pop ax
-    136	0030  C3			 ret
-    137	0031			     print_msg endp
-    138
-    139				     ; Процедура для вывода значения CX
-    140	0031			     show_cx proc
-**Error** lab_0.asm(126) Symbol	already	defined	elsewhere: SHOW_CX
-    141	0031  50			 push ax
-    142	0032  52			 push dx
-    143	0033  B4 02			 mov ah, 02h		 ; Функция DOS для вывода символа
-    144	0035  8A D5			 mov dl, ch		 ; Выводим старший байт CX (если нужно)
-    145	0037  80 C2 30			 add dl, 30h		 ; Преобразуем число в	символ
-    146	003A  CD 21			 int 21h
-    147	003C  8A D1			 mov dl, cl		 ; Выводим младший байт CX
-    148	003E  80 C2 30			 add dl, 30h		 ; Преобразуем число в	символ
-    149	0041  CD 21			 int 21h
-    150	0043  5A			 pop dx
-    151	0044  58			 pop ax
-    152	0045  C3			 ret
-    153	0046			     show_cx endp
-    154
-    155				     ; Макрос для декремента	и перехода
-    156				     dec_and_jump macro	reg, lim, dest_label
-*Warning* lab_0.asm(142) Pass-dependent	construction encountered: DEC_AND_JUMP
-    157					 local skip_jump	 ; Локальная метка
-    158					 dec reg		 ; Уменьшаем регистр на 1
-    159					 cmp reg, lim		 ; Сравниваем	с LIM
-    160					 je dest_label		 ; Переходим к метке, если равны
-    161				     skip_jump:
-    162				     endm
-    163
-    164	0046			     code ends
-    165				     end start
-Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 4
+    125				     ; Вычисление p и q
+    126	008A			     calc_p_and_q proc
+    127	008A  A1 000Cr			 mov ax, k
+    128	008D  2B 06 0038r		 sub ax, total_len	  ; AX = b (общее кол-во пробелов)
+    129	0091  A3 003Ar			 mov b,	ax
+    130
+    131	0094  8B 0E 000Er		 mov cx, word_count
+    132	0098  49			 dec cx			  ; CX = кол-во промежутков (n-1)
+    133	0099  74 0C			 jz no_gaps		  ; Если слов <	2
+    134
+    135	009B  33 D2			 xor dx, dx
+    136	009D  F7 F1			 div cx			  ; AX = p (частное), DX	= q (остаток)
+    137	009F  A3 003Cr			 mov p,	ax
+    138	00A2  89 16 003Er		 mov q,	dx
+    139	00A6  C3			 ret
+    140
+    141	00A7			     no_gaps:
+    142	00A7  C7 06 003Cr 0000		 mov p,	0
+    143	00AD  C7 06 003Er 0000		 mov q,	0
+    144	00B3  C3			 ret
+    145	00B4			     calc_p_and_q endp
+    146
+    147				     ; Формирование	результата
+    148	00B4			     build_result proc
+    149	00B4  8B 0E 000Er		 mov cx, word_count
+    150	00B8  E3 4C			 jcxz empty_result	  ; Если нет слов
+    151
+    152					 ; Копируем первое слово
+    153	00BA  BE 0010r			 lea si, words
+    154	00BD  BF 0040r			 mov di, offset	result_buffer
+    155	00C0  8B 34			 mov si, [si]		 ; SI =	первое слово
+    156
+    157	00C2			     copy_first_word:
+    158	00C2  AC			 lodsb			  ; Копируем символы
+    159	00C3  84 C0			 test al, al
+    160	00C5  74 03			 jz first_word_end
+    161	00C7  AA			 stosb
+    162	00C8  EB F8			 jmp copy_first_word
+    163	00CA			     first_word_end:
+    164
+    165					 ; Обработка остальных слов
+    166	00CA  8B 0E 000Er		 mov cx, word_count
+    167	00CE  49			 dec cx			  ; Кол-во	оставшихся слов
+    168	00CF  74 31			 jz finish_result	  ; Если только одно слово
+    169
+    170	00D1  BE 0012r			 lea si, words + 2	  ; Указатель на 2-е слово
+    171	00D4  33 DB			 xor bx, bx		  ; Индекс текущего слова (для q)
+Turbo Assembler	 Version 4.1	    05/28/25 14:06:25	    Page 4
+lab_0.asm
+
+
+
+    172
+    173	00D6			     next_word:
+    174	00D6  51			 push cx
+    175	00D7  56			 push si
+    176
+    177					 ; Вставляем пробелы
+    178	00D8  8B 0E 003Cr		 mov cx, p
+    179	00DC  3B 1E 003Er		 cmp bx, q		  ; Сравниваем индекс с q
+    180	00E0  72 03			 jb extra_space
+    181	00E2  EB 02 90			 jmp insert_spaces
+    182	00E5			     extra_space:
+    183	00E5  41			 inc cx			  ; p+1	пробелов
+    184	00E6			     insert_spaces:
+    185	00E6  E3 04			 jcxz after_spaces
+    186	00E8  B0 20			 mov al, ' '
+    187	00EA  F3> AA			 rep stosb		  ; Вставляем пробелы
+    188	00EC			     after_spaces:
+    189
+    190	00EC  5E			 pop si			  ; Восстанавливаем указатель
+    191	00ED  8B EE			 mov bp, si		  ; Сохраняем указатель массива
+    192	00EF  8B 34			 mov si, [si]		  ; SI = текущее	слово
+    193
+    194					 ; Копируем слово
+    195	00F1			     copy_word:
+    196	00F1  AC			 lodsb
+    197	00F2  84 C0			 test al, al
+    198	00F4  74 03			 jz word_copied
+    199	00F6  AA			 stosb
+    200	00F7  EB F8			 jmp copy_word
+    201	00F9			     word_copied:
+    202	00F9  8B F5			 mov si, bp		  ; Восстанавливаем указатель массива
+    203	00FB  83 C6 02			 add si, 2		  ; Следующее слово
+    204
+    205	00FE  59			 pop cx
+    206	00FF  43			 inc bx			  ; Увеличиваем индекс
+    207	0100  E2 D4			 loop next_word
+    208
+    209	0102			     finish_result:
+    210	0102  C6 05 24			 mov byte ptr [di], '$'	  ; Завершаем строку
+    211	0105  C3			 ret
+    212
+    213	0106			     empty_result:
+    214	0106  BF 0040r			 mov di, offset	result_buffer
+    215	0109  C6 05 24			 mov byte ptr [di], '$'	  ; Пустая строка
+    216	010C  C3			 ret
+    217	010D			     build_result endp
+    218
+    219				     end main
+Turbo Assembler	 Version 4.1	    05/28/25 14:06:25	    Page 5
 Symbol Table
 
 
@@ -190,41 +245,68 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??0000				  Near	 CODE:0024
-??DATE				  Text	 "03/24/25"
+??DATE				  Text	 "05/28/25"
 ??FILENAME			  Text	 "lab_0	  "
-??TIME				  Text	 "13:07:25"
+??TIME				  Text	 "14:06:25"
 ??VERSION			  Number 040A
+@32BIT				  Text	 0
+@CODE				  Text	 _TEXT
+@CODESIZE			  Text	 0
 @CPU				  Text	 0101H
-@CURSEG				  Text	 CODE
+@CURSEG				  Text	 _TEXT
+@DATA				  Text	 DGROUP
+@DATASIZE			  Text	 0
 @FILENAME			  Text	 LAB_0
+@INTERFACE			  Text	 000H
+@MODEL				  Text	 2
+@STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-BEGIN				  Near	 CODE:0014
-EXIT				  Near	 CODE:001F
-LIM				  Word	 DATA:0000
-MSG1				  Byte	 DATA:0002
-MSG2				  Byte	 DATA:001D
-MSG3				  Byte	 DATA:0031
-PRINT_MSG			  Near	 CODE:0023
-SHOW_CX				  Near	 CODE:002A
-START				  Near	 CODE:0000
+ADD_LENGTH			  Near	 _TEXT:0071
+ADJUST_END			  Near	 _TEXT:0089
+ADJUST_K			  Near	 _TEXT:007A
+AFTER_SPACES			  Near	 _TEXT:00EC
+B				  Word	 DGROUP:003A
+BUILD_RESULT			  Near	 _TEXT:00B4
+CALCULATE_TOTAL_LEN		  Near	 _TEXT:0054
+CALC_P_AND_Q			  Near	 _TEXT:008A
+COPY_FIRST_WORD			  Near	 _TEXT:00C2
+COPY_WORD			  Near	 _TEXT:00F1
+COUNT_CHARS			  Near	 _TEXT:0068
+EMPTY_RESULT			  Near	 _TEXT:0106
+EXTRA_SPACE			  Near	 _TEXT:00E5
+FINISH_RESULT			  Near	 _TEXT:0102
+FIRST_WORD_END			  Near	 _TEXT:00CA
+INPUT_STRING			  Byte	 DGROUP:0000
+INSERT_SPACES			  Near	 _TEXT:00E6
+K				  Word	 DGROUP:000C
+MAIN				  Near	 _TEXT:0000
+NEWLINE				  Byte	 DGROUP:0140
+NEXT_WORD			  Near	 _TEXT:00D6
+NO_GAPS				  Near	 _TEXT:00A7
+NO_WORDS			  Near	 _TEXT:0075
+P				  Word	 DGROUP:003C
+Q				  Word	 DGROUP:003E
+READ_WORD			  Near	 _TEXT:003F
+RESULT_BUFFER			  Byte	 DGROUP:0040
+SKIP_SPACES			  Near	 _TEXT:002F
+SPLIT_END			  Near	 _TEXT:004F
+SPLIT_STRING			  Near	 _TEXT:0027
+TOTAL_LEN			  Word	 DGROUP:0038
+WORDS				  Word	 DGROUP:0010
+WORD_COPIED			  Near	 _TEXT:00F9
+WORD_COUNT			  Word	 DGROUP:000E
+WORD_END			  Near	 _TEXT:004E
+WORD_LOOP			  Near	 _TEXT:0061
+Turbo Assembler	 Version 4.1	    05/28/25 14:06:25	    Page 6
+Symbol Table
 
-Macro Name
 
-DEC_AND_JUMP
+
 
 Groups & Segments		  Bit Size Align  Combine Class
 
-CODE				  16  0046 Para	  none
-DATA				  16  0048 Para	  none
-SSEG				  16  0200 Para	  Stack	  STACK
-Turbo Assembler	 Version 4.1	    03/24/25 13:07:25	    Page 5
-Error Summary
-
-
-
-**Error** lab_0.asm(111) Symbol	already	defined	elsewhere: EXIT
-**Error** lab_0.asm(117) Symbol	already	defined	elsewhere: PRINT_MSG
-**Error** lab_0.asm(126) Symbol	already	defined	elsewhere: SHOW_CX
-*Warning* lab_0.asm(142) Pass-dependent	construction encountered: DEC_AND_JUMP
+DGROUP				  Group
+  STACK				  16  0100 Para	  Stack	  STACK
+  _DATA				  16  0143 Word	  Public  DATA
+_TEXT				  16  010D Word	  Public  CODE
 

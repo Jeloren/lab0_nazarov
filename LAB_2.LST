@@ -1,57 +1,57 @@
-Turbo Assembler	 Version 4.1	    04/27/25 16:59:44	    Page 1
+Turbo Assembler	 Version 4.1	    05/05/25 14:38:57	    Page 1
 lab_2.asm
 
 
 
-      1	0000			     .MODEL SMALL
-      2	0000			     .STACK 100h
+      1	0000			     .model small
+      2	0000			     .stack 100h
       3
-      4				     EXTRN InsBlanks: FAR
-      5
-      6	0000			     .DATA
-      7	0000  0B 48 65 6C 6C 6F	20+	 S	DB 11, 'Hello world'   ; Исходная строка
-      8	      77 6F 72 6C 64
-      9	000C  14			 Len	DB 20		       ; Желаемая длина
-     10	000D  FF*(??)			 Result	DB 255 DUP(?)	       ; Результат (первый байт — длина)
-     11	010C  24			 EndStr	DB '$'		       ; Символ конца строки для вывода
-     12
-     13	010D			     .CODE
-     14	0000			     Start:
-     15	0000  B8 0000s			 mov ax, @data
-     16	0003  8E D8			 mov ds, ax
-     17
-     18					 ; Вызов InsBlanks(S, Len,	Result)
-     19	0005  1E			 push ds
-     20	0006  B8 0000r			 lea ax, S
-     21	0009  50			 push ax
-     22	000A  33 C0			 xor ax, ax		      ;	Очистка AX
-     23	000C  A0 000Cr			 mov al, Len		      ;	Загрузка Len в	AL
-     24	000F  50			 push ax		      ;	Передаём Len как слово
-     25	0010  1E			 push ds
-     26	0011  B8 000Dr			 lea ax, Result
-     27	0014  50			 push ax
-     28	0015  9A 00000000se		 call InsBlanks
-     29
-     30					 ; Добавляем символ '$' в конец строки Result
-     31	001A  BE 000Dr			 mov si, offset	Result
-     32	001D  33 C9			 xor cx, cx
-     33	001F  8A 0C			 mov cl, [si]		     ; Загружаем длину строки из Result[0]
-     34	0021  8D 7C 01			 lea di, [si + 1]	     ; DI указывает на начало строки	    +
-     35				     (после байта длины)
-     36	0024  03 F9			 add di, cx		      ;	DI = конец	строки
-     37	0026  C6 05 24			 mov byte ptr [di], '$'	      ;	Записываем '$'
-     38
-     39					 ; Вывод результата
-     40	0029  B4 09			 mov ah, 09h
-     41	002B  8D 54 01			 lea dx, [si + 1]	     ; Пропускаем байт длины
-     42	002E  CD 21			 int 21h
-     43
-     44					 ; Завершение	программы
-     45	0030  B8 4C00			 mov ax, 4C00h
-     46	0033  CD 21			 int 21h
+      4	0000			     .data
+      5					 ; Тестовые данные
+      6	0000  00			 test_empty    db 0		    ; Пустая строка
+      7	0001  05			 len_empty     db 5
+      8
+      9	0002  03 61 62 63		 test_no_spc  db 3, 'abc'	   ; Строка без пробелов
+     10	0006  05			 len_no_spc   db 5
+     11
+     12	0007  05 61 20 62 20 63		 test_with_spc db 5, 'a	b c'	   ; Строка с пробелами
+     13	000D  08			 len_with_spc  db 8
+     14
+     15	000E  FF*(??)			 result	      db 255 dup(?)	   ; Буфер	для результата
+     16
+     17	010D			     .code
+     18				     extrn InsBlanks:proc
+     19
+     20	0000			     main proc
+     21	0000  B8 0000s			 mov ax, @data
+     22	0003  8E D8			 mov ds, ax
+     23	0005  8E C0			 mov es, ax
+     24
+     25					 ; Тест 1: Пустая строка
+     26	0007  BE 0000r			 mov si, offset	test_empty
+     27	000A  A0 0001r			 mov al, len_empty
+     28	000D  BF 000Er			 mov di, offset	result
+     29	0010  E8 0000e			 call InsBlanks
+     30
+     31					 ; Тест 2: Строка без пробелов
+     32	0013  BE 0002r			 mov si, offset	test_no_spc
+     33	0016  A0 0006r			 mov al, len_no_spc
+     34	0019  BF 000Er			 mov di, offset	result
+     35	001C  E8 0000e			 call InsBlanks
+     36
+     37					 ; Тест 3: Строка с пробелами
+     38	001F  BE 0007r			 mov si, offset	test_with_spc
+     39	0022  A0 000Dr			 mov al, len_with_spc
+     40	0025  BF 000Er			 mov di, offset	result
+     41	0028  E8 0000e			 call InsBlanks
+     42
+     43					 ; Завершение	программы
+     44	002B  B8 4C00			 mov ax, 4C00h
+     45	002E  CD 21			 int 21h
+     46	0030			     main endp
      47
-     48				     END Start
-Turbo Assembler	 Version 4.1	    04/27/25 16:59:44	    Page 2
+     48				     end main
+Turbo Assembler	 Version 4.1	    05/05/25 14:38:57	    Page 2
 Symbol Table
 
 
@@ -59,9 +59,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??DATE				  Text	 "04/27/25"
+??DATE				  Text	 "05/05/25"
 ??FILENAME			  Text	 "lab_2	  "
-??TIME				  Text	 "16:59:44"
+??TIME				  Text	 "14:38:57"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
 @CODE				  Text	 _TEXT
@@ -75,17 +75,20 @@ Symbol Name			  Type	 Value
 @MODEL				  Text	 2
 @STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-ENDSTR				  Byte	 DGROUP:010C
-INSBLANKS			  Far	 ----:---- Extern
-LEN				  Byte	 DGROUP:000C
-RESULT				  Byte	 DGROUP:000D
-S				  Byte	 DGROUP:0000
-START				  Near	 _TEXT:0000
+INSBLANKS			  Near	 _TEXT:---- Extern
+LEN_EMPTY			  Byte	 DGROUP:0001
+LEN_NO_SPC			  Byte	 DGROUP:0006
+LEN_WITH_SPC			  Byte	 DGROUP:000D
+MAIN				  Near	 _TEXT:0000
+RESULT				  Byte	 DGROUP:000E
+TEST_EMPTY			  Byte	 DGROUP:0000
+TEST_NO_SPC			  Byte	 DGROUP:0002
+TEST_WITH_SPC			  Byte	 DGROUP:0007
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
   STACK				  16  0100 Para	  Stack	  STACK
   _DATA				  16  010D Word	  Public  DATA
-_TEXT				  16  0035 Word	  Public  CODE
+_TEXT				  16  0030 Word	  Public  CODE
 

@@ -1,2 +1,9 @@
-Fatal: Unable to open file 'lab_0.obj'
+
+ Start  Stop   Length Name               Class
+
+ 00000H 0010CH 0010DH _TEXT              CODE
+ 00110H 00252H 00143H _DATA              DATA
+ 00260H 0035FH 00100H STACK              STACK
+
+Program entry point at 0000:0000
 

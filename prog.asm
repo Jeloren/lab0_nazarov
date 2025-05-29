@@ -1,138 +1,133 @@
-.MODEL LARGE
-.CODE
+.model small
+.code
+public InsBlanks
 
-PUBLIC InsBlanks
-
-InsBlanks PROC FAR
-    ; Параметры в стеке:
-    ; [BP+6]  - Смещение строки S
-    ; [BP+8]  - Сегмент строки S
-    ; [BP+10] - Длина Len (слово, но используем только младший байт)
-    ; [BP+12] - Смещение результата Res
-    ; [BP+14] - Сегмент результата Res
-
-    push bp
-    mov bp, sp
-    push ds
-    push es
-    push si
-    push di
+InsBlanks proc near
     push ax
     push bx
     push cx
     push dx
-
-    ; Загрузка адреса исходной строки S в DS:SI
-    lds si, [bp+6]     ; DS:SI = S
-
-    ; Загрузка адреса результата Res в ES:DI
-    les di, [bp+12]    ; ES:DI = Res
-
-    ; Копирование исходной строки S в Res
-    mov cl, [si]       ; Длина S
-    mov ch, 0
-    mov es:[di], cl    ; Сохраняем длину в Res
-    inc di             ; Пропускаем байт длины
-    inc si             ; Пропускаем байт длины в S
-    jcxz CopyDone      ; Если строка пустая
-
-CopyLoop:
-    mov al, [si]
-    mov es:[di], al
-    inc si
-    inc di
-    loop CopyLoop
-
-CopyDone:
-    ; Проверяем, нужно ли добавлять пробелы
-    les di, [bp+12]    ; ES:DI = Res (байт длины)
-    mov al, es:[di]    ; Текущая длина Res
-    cmp al, [bp+10]    ; Сравниваем с Len
-    jae Exit           ; Если длина >= Len, выход
-
-    ; Вычисляем количество пробелов для добавления
-    mov bl, [bp+10]    ; Целевая длина
-    sub bl, al         ; BL = delta
-
-AddSpaces:
-    ; Поиск позиций для вставки пробелов между словами
-    mov cx, es:[di]    ; Текущая длина
-    mov ch, 0
-    inc di             ; ES:DI указывает на первый символ
-
-FindInsertPos:
-    mov si, di         ; ES:SI = начало строки
-    add si, cx         ; ES:SI = конец строки
-    dec si             ; Последний символ
-
-    mov dx, 0          ; Индекс текущего символа
-
-CheckLoop:
-    cmp dx, cx
-    jae EndCheck       ; Пройдена вся строка
-
-    mov al, es:[si]
-    cmp al, ' '
-    jne NextChar       ; Текущий символ не пробел
-
-    ; Проверяем предыдущий символ
-    cmp dx, 0
-    je NextChar        ; Первый символ - пробел, пропускаем
-
-    mov al, es:[si-1]
-    cmp al, ' '
-    je NextChar        ; Предыдущий тоже пробел, пропускаем
-
-    ; Нашли место для вставки (пробел между словами)
-    ; Вставляем пробел
-    push cx
     push si
     push di
-
-    ; Сдвигаем символы вправо
-    mov di, si
-    inc di             ; Куда сдвигать
-    mov cx, cx         ; CX = текущая длина
-    sub cx, dx         ; Сколько символов сдвигать
-    std                ; Направление с конца
-    rep movsb
+    push bp
     cld
 
-    ; Вставляем пробел
-    mov byte ptr es:[si], ' '
+    ; Проверка на пустую строку
+    mov cl, [si]
+    test cl, cl
+    jz short exit
 
-    ; Увеличиваем длину строки
-    les di, [bp+12]
-    inc byte ptr es:[di]
+    ; Проверка длины
+    cmp cl, al
+    jae copy_original
 
-    ; Уменьшаем delta
-    dec bl
-    jz Exit            ; Если пробелы добавлены
+    ; Вычисление delta
+    mov dl, al
+    sub dl, cl          ; dl = delta
 
-    pop di
+    ; Копирование исходной строки в буфер
+    push di
+    mov [di], cl        ; Копируем длину
+    inc di
+    inc si
+    mov ch, 0
+    rep movsb
+    pop di              ; DI указывает на буфер
+    dec si              ; Восстановить SI
+
+    ; Подсчет пробелов
+    mov si, di
+    inc si              ; Начало данных
+    mov cl, [di]
+    xor bx, bx          ; Счетчик пробелов
+    xor dx, dx          ; Индекс символа
+count_loop:
+    lodsb
+    cmp al, ' '
+    jne next_char
+    inc bx
+next_char:
+    inc dx
+    loop count_loop
+
+    ; Проверка наличия пробелов
+    test bx, bx
+    jz add_end
+
+    ; Защита от деления на ноль
+    test bl, bl
+    jz add_end
+
+    ; Распределение пробелов
+    mov cx, dx          ; delta
+    mov al, dl
+    xor ah, ah
+    div bl              ; AL = quotient, AH = remainder
+    mov dh, ah          ; remainder
+    mov dl, al          ; quotient
+
+    ; Вставка пробелов
+    mov si, di
+    inc si              ; Начало данных
+    mov cl, [di]
+    xor ch, ch
+insert_loop:
+    push cx
+    push si
+    mov cl, [di]
+    mov si, di
+    inc si
+search_spc:
+    lodsb
+    cmp al, ' '
+    jne skip
+    dec bx
+    jnz skip
+    ; Вставка пробелов
+    mov al, ' '
+    mov cx, dx
+    add cl, dh
+    jcxz skip
+insert_space:
+    stosb
+    ; Обновление длины строки
+    mov al, [di-1]
+    inc al
+    mov [di-1], al
+    loop insert_space
+skip:
+    loop search_spc
     pop si
     pop cx
+    loop insert_loop
+    jmp short exit
 
-NextChar:
-    inc dx
+add_end:
+    ; Добавление пробелов в конец
+    mov al, ' '
+    mov cl, dl
+    add cl, dh
+    rep stosb
+    ; Обновление длины строки
+    mov [di-1], cl
+
+copy_original:
+    ; Копирование исходной строки
+    mov cl, [si]
+    mov [di], cl
+    inc di
     inc si
-    jmp CheckLoop
+    rep movsb
 
-EndCheck:
-    ; Если пробелы ещё нужно добавить
-    jmp AddSpaces
-
-Exit:
+exit:
+    pop bp
+    pop di
+    pop si
     pop dx
     pop cx
     pop bx
     pop ax
-    pop di
-    pop si
-    pop es
-    pop ds
-    pop bp
-    retf 10            ; Удаляем параметры из стека (4 + 2 + 4 = 10 байт)
-InsBlanks ENDP
+    ret
+InsBlanks endp
 
-END
+end
