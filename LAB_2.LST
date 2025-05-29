@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 4.1	    05/05/25 14:38:57	    Page 1
+Turbo Assembler	 Version 4.1	    05/29/25 23:37:21	    Page 1
 lab_2.asm
 
 
@@ -6,52 +6,146 @@ lab_2.asm
       1	0000			     .model small
       2	0000			     .stack 100h
       3
-      4	0000			     .data
-      5					 ; Тестовые данные
-      6	0000  00			 test_empty    db 0		    ; Пустая строка
-      7	0001  05			 len_empty     db 5
-      8
-      9	0002  03 61 62 63		 test_no_spc  db 3, 'abc'	   ; Строка без пробелов
-     10	0006  05			 len_no_spc   db 5
-     11
-     12	0007  05 61 20 62 20 63		 test_with_spc db 5, 'a	b c'	   ; Строка с пробелами
-     13	000D  08			 len_with_spc  db 8
-     14
-     15	000E  FF*(??)			 result	      db 255 dup(?)	   ; Буфер	для результата
-     16
-     17	010D			     .code
-     18				     extrn InsBlanks:proc
-     19
-     20	0000			     main proc
-     21	0000  B8 0000s			 mov ax, @data
-     22	0003  8E D8			 mov ds, ax
-     23	0005  8E C0			 mov es, ax
-     24
-     25					 ; Тест 1: Пустая строка
-     26	0007  BE 0000r			 mov si, offset	test_empty
-     27	000A  A0 0001r			 mov al, len_empty
-     28	000D  BF 000Er			 mov di, offset	result
-     29	0010  E8 0000e			 call InsBlanks
-     30
-     31					 ; Тест 2: Строка без пробелов
-     32	0013  BE 0002r			 mov si, offset	test_no_spc
-     33	0016  A0 0006r			 mov al, len_no_spc
-     34	0019  BF 000Er			 mov di, offset	result
-     35	001C  E8 0000e			 call InsBlanks
-     36
-     37					 ; Тест 3: Строка с пробелами
-     38	001F  BE 0007r			 mov si, offset	test_with_spc
-     39	0022  A0 000Dr			 mov al, len_with_spc
-     40	0025  BF 000Er			 mov di, offset	result
-     41	0028  E8 0000e			 call InsBlanks
-     42
-     43					 ; Завершение	программы
-     44	002B  B8 4C00			 mov ax, 4C00h
-     45	002E  CD 21			 int 21h
-     46	0030			     main endp
-     47
-     48				     end main
-Turbo Assembler	 Version 4.1	    05/05/25 14:38:57	    Page 2
+      4				     extrn InsBlanks:near
+      5
+      6	0000			     .data
+      7	0000  48 65 6C 6C 6F 20	6D+	 input_string  db 'Hello man cycle',0	; Входная строка
+      8	      61 6E 20 63 79 63	6C+
+      9	      65 00
+     10	0010  001A			 k	       dw 26		    ; Требуемая длина
+     11	0012  0000			 word_count    dw 0		    ; Количество слов
+     12	0014  14*(0000)			 words	       dw 20 dup(0)	    ; Массив указателей	на слова
+     13	003C  0100*(24)			 temp_buffer   db 256 dup('$')	    ; Буфер для	строки с	одним	    +
+     14				     пробелом между словами
+     15	013C  0100*(24)			 result_buffer db 256 dup('$')	    ; Буфер для	результата
+     16	023C  0D 0A 24			 newline       db 13,10,'$'	    ; Перевод строки
+     17
+     18	023F			     .code
+     19	0000			     main proc
+     20	0000  B8 0000s			 mov ax, @data
+     21	0003  8E D8			 mov ds, ax
+     22	0005  8E C0			 mov es, ax
+     23
+     24	0007  E8 002F			 call split_string	  ; Разбиваем строку на слова
+     25	000A  E8 0059			 call build_temp_string	  ; Формируем строку с одним пробелом  +
+     26				     между	словами
+     27
+     28					 ; Вызов подпрограммы InsBlanks
+     29	000D  50 55 8B EC C7 46	02+	 push offset temp_buffer   ; Адрес	временной строки
+     30	      003Cr 5D
+     31	0017  FF 36 0010r		 push k			  ; Требуемая длина
+     32	001B  50 55 8B EC C7 46	02+	 push offset result_buffer ; Адрес	буфера результата
+     33	      013Cr 5D
+     34	0025  E8 0000e			 call InsBlanks
+     35
+     36					 ; Вывод результата
+     37	0028  B4 09			 mov ah, 09h
+     38	002A  BA 013Cr			 lea dx, result_buffer
+     39	002D  CD 21			 int 21h
+     40
+     41					 ; Вывод перевода строки
+     42	002F  BA 023Cr			 lea dx, newline
+     43	0032  CD 21			 int 21h
+     44
+     45					 ; Завершение	программы
+     46	0034  B8 4C00			 mov ax, 4C00h
+     47	0037  CD 21			 int 21h
+     48	0039			     main endp
+     49
+     50				     ; Разбиение строки на слова
+     51	0039			     split_string proc
+     52	0039  BE 0000r			 lea si, input_string
+     53	003C  BF 0014r			 lea di, words
+     54	003F  33 C9			 xor cx, cx
+     55
+     56	0041			     skip_spaces:
+     57	0041  AC			 lodsb
+Turbo Assembler	 Version 4.1	    05/29/25 23:37:21	    Page 2
+lab_2.asm
+
+
+
+     58	0042  3C 00			 cmp al, 0
+     59	0044  74 1B			 je split_end
+     60	0046  3C 20			 cmp al, ' '
+     61	0048  74 F7			 je skip_spaces
+     62
+     63	004A  4E			 dec si
+     64	004B  89 35			 mov [di], si
+     65	004D  83 C7 02			 add di, 2
+     66	0050  41			 inc cx
+     67
+     68	0051			     read_word:
+     69	0051  AC			 lodsb
+     70	0052  3C 00			 cmp al, 0
+     71	0054  74 0A			 je word_end
+     72	0056  3C 20			 cmp al, ' '
+     73	0058  75 F7			 jne read_word
+     74	005A  C6 44 FF 00		 mov byte ptr [si-1], 0
+     75	005E  EB E1			 jmp skip_spaces
+     76
+     77	0060			     word_end:
+     78	0060  4E			 dec si
+     79	0061			     split_end:
+     80	0061  89 0E 0012r		 mov word_count, cx
+     81	0065  C3			 ret
+     82	0066			     split_string endp
+     83
+     84				     ; Формирование	строки с	одним пробелом между словами
+     85	0066			     build_temp_string proc
+     86	0066  8B 0E 0012r		 mov cx, word_count
+     87	006A  E3 34			 jcxz empty_temp
+     88	006C  BE 0014r			 lea si, words
+     89	006F  BF 003Cr			 mov di, offset	temp_buffer
+     90
+     91					 ; Копируем первое слово
+     92	0072  8B 34			 mov si, [si]
+     93	0074			     copy_first:
+     94	0074  8A 04			 mov al, [si]
+     95	0076  84 C0			 test al, al
+     96	0078  74 04			 jz first_done
+     97	007A  AA			 stosb
+     98	007B  46			 inc si
+     99	007C  EB F6			 jmp copy_first
+    100	007E			     first_done:
+    101
+    102					 ; Обработка остальных слов
+    103	007E  8B 0E 0012r		 mov cx, word_count
+    104	0082  49			 dec cx
+    105	0083  74 17			 jz temp_done
+    106	0085  BB 0016r			 lea bx, words + 2
+    107
+    108	0088			     next_temp_word:
+    109	0088  B0 20			 mov al, ' '
+    110	008A  AA			 stosb
+    111	008B  8B 37			 mov si, [bx]
+    112	008D  83 C3 02			 add bx, 2
+    113	0090			     copy_word_temp:
+    114	0090  8A 04			 mov al, [si]
+Turbo Assembler	 Version 4.1	    05/29/25 23:37:21	    Page 3
+lab_2.asm
+
+
+
+    115	0092  84 C0			 test al, al
+    116	0094  74 04			 jz word_done_temp
+    117	0096  AA			 stosb
+    118	0097  46			 inc si
+    119	0098  EB F6			 jmp copy_word_temp
+    120	009A			     word_done_temp:
+    121	009A  E2 EC			 loop next_temp_word
+    122
+    123	009C			     temp_done:
+    124	009C  C6 05 00			 mov byte ptr [di], 0	; Завершаем 0 вместо '$'
+    125	009F  C3			 ret
+    126
+    127	00A0			     empty_temp:
+    128	00A0  C6 06 003Cr 00		 mov byte ptr [temp_buffer], 0
+    129	00A5  C3			 ret
+    130	00A6			     build_temp_string endp
+    131
+    132				     end main
+Turbo Assembler	 Version 4.1	    05/29/25 23:37:21	    Page 4
 Symbol Table
 
 
@@ -59,9 +153,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??DATE				  Text	 "05/05/25"
+??DATE				  Text	 "05/29/25"
 ??FILENAME			  Text	 "lab_2	  "
-??TIME				  Text	 "14:38:57"
+??TIME				  Text	 "23:37:21"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
 @CODE				  Text	 _TEXT
@@ -75,20 +169,33 @@ Symbol Name			  Type	 Value
 @MODEL				  Text	 2
 @STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-INSBLANKS			  Near	 _TEXT:---- Extern
-LEN_EMPTY			  Byte	 DGROUP:0001
-LEN_NO_SPC			  Byte	 DGROUP:0006
-LEN_WITH_SPC			  Byte	 DGROUP:000D
+BUILD_TEMP_STRING		  Near	 _TEXT:0066
+COPY_FIRST			  Near	 _TEXT:0074
+COPY_WORD_TEMP			  Near	 _TEXT:0090
+EMPTY_TEMP			  Near	 _TEXT:00A0
+FIRST_DONE			  Near	 _TEXT:007E
+INPUT_STRING			  Byte	 DGROUP:0000
+INSBLANKS			  Near	 ----:---- Extern
+K				  Word	 DGROUP:0010
 MAIN				  Near	 _TEXT:0000
-RESULT				  Byte	 DGROUP:000E
-TEST_EMPTY			  Byte	 DGROUP:0000
-TEST_NO_SPC			  Byte	 DGROUP:0002
-TEST_WITH_SPC			  Byte	 DGROUP:0007
+NEWLINE				  Byte	 DGROUP:023C
+NEXT_TEMP_WORD			  Near	 _TEXT:0088
+READ_WORD			  Near	 _TEXT:0051
+RESULT_BUFFER			  Byte	 DGROUP:013C
+SKIP_SPACES			  Near	 _TEXT:0041
+SPLIT_END			  Near	 _TEXT:0061
+SPLIT_STRING			  Near	 _TEXT:0039
+TEMP_BUFFER			  Byte	 DGROUP:003C
+TEMP_DONE			  Near	 _TEXT:009C
+WORDS				  Word	 DGROUP:0014
+WORD_COUNT			  Word	 DGROUP:0012
+WORD_DONE_TEMP			  Near	 _TEXT:009A
+WORD_END			  Near	 _TEXT:0060
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
   STACK				  16  0100 Para	  Stack	  STACK
-  _DATA				  16  010D Word	  Public  DATA
-_TEXT				  16  0030 Word	  Public  CODE
+  _DATA				  16  023F Word	  Public  DATA
+_TEXT				  16  00A6 Word	  Public  CODE
 
