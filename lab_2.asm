@@ -1,125 +1,133 @@
 .model small
-.stack 100h
+.stack 100h       ; Устанавливаем размер стека (256 байт)
 
-extrn InsBlanks:near
+extrn InsBlanks:near ; Объявляем внешнюю процедуру InsBlanks
 
 .data
-    input_string  db 'Hello man cycle',0   ; Входная строка
-    k             dw 26                ; Требуемая длина
-    word_count    dw 0                 ; Количество слов
-    words         dw 20 dup(0)         ; Массив указателей на слова
-    temp_buffer   db 256 dup('$')      ; Буфер для строки с одним пробелом между словами
-    result_buffer db 256 dup('$')      ; Буфер для результата
-    newline       db 13,10,'$'         ; Перевод строки
+    input_string  db 'Hello man cycle',0 ; Исходная строка
+    k             dw 26                 ; Желаемая длина
+    word_count    dw 0                  ; Счетчик слов
+    words         dw 20 dup(0)          ; Массив указателей на слова
+    temp_buffer   db 256 dup('$')       ; Буфер для нормализованной строки
+    result_buffer db 256 dup('$')       ; Буфер для результата
+    newline       db 13,10,'$'          ; Перевод строки (CR+LF)
 
 .code
 main proc
-    mov ax, @data
+    mov ax, @data  ; Загружаем адрес данных в DS и ES
     mov ds, ax
     mov es, ax
 
-    call split_string        ; Разбиваем строку на слова
-    call build_temp_string   ; Формируем строку с одним пробелом между словами
+    ; Разбиваем строку на слова
+    call split_string
 
-    ; Вызов подпрограммы InsBlanks
-    push offset temp_buffer   ; Адрес временной строки
-    push k                   ; Требуемая длина
-    push offset result_buffer ; Адрес буфера результата
+    ; Собираем строку с одним пробелом между слов
+    call build_temp_string
+
+    ; Вызываем InsBlanks:
+    ; 1. Адрес нормализованной строки
+    ; 2. Желаемая длина (k)
+    ; 3. Адрес буфера результата
+    push offset temp_buffer
+    push k
+    push offset result_buffer
     call InsBlanks
 
-    ; Вывод результата
+    ; Выводим результат
     mov ah, 09h
     lea dx, result_buffer
     int 21h
     
-    ; Вывод перевода строки
+    ; Выводим перевод строки
     lea dx, newline
     int 21h
 
-    ; Завершение программы
+    ; Завершаем программу
     mov ax, 4C00h
     int 21h
 main endp
 
-; Разбиение строки на слова
+; Разбивает строку на слова, сохраняя указатели в массив words
 split_string proc
-    lea si, input_string
-    lea di, words
-    xor cx, cx
+    lea si, input_string ; SI = начало строки
+    lea di, words        ; DI = массив указателей
+    xor cx, cx           ; CX = счетчик слов
 
 skip_spaces:
-    lodsb
-    cmp al, 0
+    lodsb                ; Читаем символ
+    cmp al, 0            ; Если конец строки, завершаем
     je split_end
-    cmp al, ' '
+    cmp al, ' '          ; Пропускаем пробелы
     je skip_spaces
 
-    dec si
-    mov [di], si
-    add di, 2
-    inc cx
+    ; Нашли начало слова
+    dec si               ; Возвращаемся на первый символ слова
+    mov [di], si         ; Сохраняем указатель на слово
+    add di, 2            ; Переходим к следующему элементу массива
+    inc cx               ; Увеличиваем счетчик слов
 
 read_word:
-    lodsb
-    cmp al, 0
+    lodsb                ; Читаем символ
+    cmp al, 0            ; Если конец строки, завершаем
     je word_end
-    cmp al, ' '
+    cmp al, ' '          ; Если пробел, завершаем слово
     jne read_word
-    mov byte ptr [si-1], 0
-    jmp skip_spaces
+    mov byte ptr [si-1], 0 ; Заменяем пробел на 0 (конец строки)
+    jmp skip_spaces      ; Продолжаем поиск слов
 
 word_end:
-    dec si
+    dec si               ; Корректируем указатель
 split_end:
-    mov word_count, cx
+    mov word_count, cx   ; Сохраняем количество слов
     ret
 split_string endp
 
-; Формирование строки с одним пробелом между словами
+; Собирает строку с одним пробелом между словами
 build_temp_string proc
-    mov cx, word_count
-    jcxz empty_temp
-    lea si, words
-    mov di, offset temp_buffer
+    mov cx, word_count   ; CX = количество слов
+    jcxz empty_temp      ; Если слов нет, пропускаем
+    lea si, words        ; SI = массив указателей
+    mov di, offset temp_buffer ; DI = буфер результата
 
     ; Копируем первое слово
-    mov si, [si]
+    mov si, [si]         ; SI = адрес первого слова
 copy_first:
-    mov al, [si]
-    test al, al
+    mov al, [si]         ; Читаем символ
+    test al, al          ; Если конец слова, переходим дальше
     jz first_done
-    stosb
-    inc si
+    stosb                ; Записываем символ в буфер  di = al; di++; lodsb al = si; si++ 
+    inc si               ; Переходим к следующему
     jmp copy_first
-first_done:
 
-    ; Обработка остальных слов
+first_done:
+    ; Обрабатываем остальные слова
     mov cx, word_count
-    dec cx
-    jz temp_done
-    lea bx, words + 2
+    dec cx               ; Количество промежутков = слов - 1
+    jz temp_done         ; Если одно слово, завершаем
+    lea bx, words + 2    ; BX = указатель на второе слово
 
 next_temp_word:
-    mov al, ' '
+    mov al, ' '          ; Вставляем пробел
     stosb
-    mov si, [bx]
-    add bx, 2
+    mov si, [bx]         ; SI = адрес слова
+    add bx, 2            ; Переходим к следующему слову
 copy_word_temp:
-    mov al, [si]
+    mov al, [si]         ; Копируем слово
     test al, al
     jz word_done_temp
     stosb
     inc si
     jmp copy_word_temp
+
 word_done_temp:
-    loop next_temp_word
+    loop next_temp_word  ; Повторяем для всех слов
 
 temp_done:
-    mov byte ptr [di], 0   ; Завершаем 0 вместо '$'
+    mov byte ptr [di], 0 ; Завершаем строку нулем
     ret
 
 empty_temp:
-    mov byte ptr [temp_buffer], 0
+    mov byte ptr [temp_buffer], 0 ; Пустая строка
     ret
 build_temp_string endp
 

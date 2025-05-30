@@ -1,22 +1,68 @@
-start_str = "Hello world asm"
-length = 30
+def ins_blanks(s, k):
+    if not s:
+        return s if k <= 0 else ' ' * k
+    
+    # Нормализация строки (удаление лишних пробелов)
+    normalized = []
+    in_word = False
+    for char in s:
+        if char == ' ':
+            if in_word:
+                normalized.append(' ')
+                in_word = False
+        else:
+            normalized.append(char)
+            in_word = True
+    
+    # Удаляем последний пробел если есть
+    if normalized and normalized[-1] == ' ':
+        normalized.pop()
+    normalized = ''.join(normalized)
+    
+    n = len(normalized)
+    if n >= k:
+        return normalized
+    
+    # Подсчет слов
+    words = normalized.split() if normalized else []
+    word_count = len(words)
+    
+    if word_count == 0:
+        return ' ' * k
+    if word_count == 1:
+        return words[0] + (' ' * (k - len(words[0])))
+    
+    # Вычисление дополнительных пробелов
+    total_spaces = k - n
+    gaps = word_count - 1
+    base_spaces = total_spaces // gaps
+    extra_spaces = total_spaces % gaps
+    
+    # Построение результата
+    result = []
+    for i, word in enumerate(words):
+        result.append(word)
+        if i < gaps:
+            # Базовые пробелы + дополнительный если нужно
+            spaces = base_spaces + 1 if i < extra_spaces else base_spaces
+            result.append(' ' * spaces)
+    
+    return ''.join(result)
 
-def len_start_str(stroka):
-    return len(stroka)
+# Тестирование как в оригинальной программе
+def main():
+    test_cases = [
+        ("Hello man cycle", 26),  # Исходный тест
+        ("", 10),                # Пустая строка
+        ("Single", 10),          # Одно слово
+        ("   ", 5),              # Только пробелы
+        ("a  b   c", 15),        # С лишними пробелами
+    ]
+    
+    for s, k in test_cases:
+        print(f"Ввод: '{s}', k={k}")
+        result = ins_blanks(s, k)
+        print(f"Результат: '{result}' (длина={len(result)})\n")
 
-def insblanks(start_str, length):
-    lenght_start_str = len_start_str(start_str)
-    if (length <= lenght_start_str) or (lenght_start_str == 0):
-        return 0
-    need_spaces = length - lenght_start_str
-    for ch in range():
-        print(start_str[ch])
-        if start_str[ch] == ' ':
-            print(start_str[ch:], start_str[:ch])
-            pr_str = start_str
-            start_str = pr_str[:ch] + ' ' + pr_str[ch:]
-    return start_str
-
-print(start_str)
-print(insblanks(start_str, length))
-
+if __name__ == "__main__":
+    main()
