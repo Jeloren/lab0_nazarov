@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 4.1	    05/30/25 09:09:22	    Page 1
+Turbo Assembler	 Version 4.1	    05/31/25 23:00:36	    Page 1
 lab_2.asm
 
 
@@ -13,149 +13,46 @@ lab_2.asm
       8	      61 6E 20 63 79 63	6C+
       9	      65 00
      10	0010  001A			 k	       dw 26		     ; Желаемая	длина
-     11	0012  0000			 word_count    dw 0		     ; Счетчик слов
-     12	0014  14*(0000)			 words	       dw 20 dup(0)	     ; Массив указателей на слова
-     13	003C  0100*(24)			 temp_buffer   db 256 dup('$')	     ; Буфер для нормализованной	    +
+     11	0012  0100*(24)			 result_buffer db 256 dup('$')	     ; Буфер для результата
+     12	0112  14*(0000)			 words_buffer  dw 20 dup(0)	     ; Массив указателей на слова
+     13	013A  0100*(24)			 temp_buffer   db 256 dup('$')	     ; Буфер для нормализованной	    +
      14				     строки
-     15	013C  0100*(24)			 result_buffer db 256 dup('$')	     ; Буфер для результата
-     16	023C  0D 0A 24			 newline       db 13,10,'$'	     ; Перевод строки (CR+LF)
-     17
-     18	023F			     .code
-     19	0000			     main proc
-     20	0000  B8 0000s			 mov ax, @data	; Загружаем адрес	данных в	DS и ES
-     21	0003  8E D8			 mov ds, ax
-     22	0005  8E C0			 mov es, ax
-     23
-     24					 ; Разбиваем строку на	слова
-     25	0007  E8 002F			 call split_string
-     26
-     27					 ; Собираем строку с одним пробелом	между слов
-     28	000A  E8 0059			 call build_temp_string
-     29
-     30					 ; Вызываем InsBlanks:
-     31					 ; 1. Адрес нормализованной	строки
-     32					 ; 2. Желаемая длина (k)
-     33					 ; 3. Адрес буфера результата
-     34	000D  50 55 8B EC C7 46	02+	 push offset temp_buffer
-     35	      003Cr 5D
-     36	0017  FF 36 0010r		 push k
-     37	001B  50 55 8B EC C7 46	02+	 push offset result_buffer
-     38	      013Cr 5D
-     39	0025  E8 0000e			 call InsBlanks
-     40
-     41					 ; Выводим результат
-     42	0028  B4 09			 mov ah, 09h
-     43	002A  BA 013Cr			 lea dx, result_buffer
-     44	002D  CD 21			 int 21h
-     45
-     46					 ; Выводим перевод строки
-     47	002F  BA 023Cr			 lea dx, newline
-     48	0032  CD 21			 int 21h
-     49
-     50					 ; Завершаем программу
-     51	0034  B8 4C00			 mov ax, 4C00h
-     52	0037  CD 21			 int 21h
-     53	0039			     main endp
-     54
-     55				     ; Разбивает строку на слова,	сохраняя указатели в	    +
-     56				     массив words
-     57	0039			     split_string proc
-Turbo Assembler	 Version 4.1	    05/30/25 09:09:22	    Page 2
-lab_2.asm
-
-
-
-     58	0039  BE 0000r			 lea si, input_string ;	SI = начало строки
-     59	003C  BF 0014r			 lea di, words	      ;	DI = массив указателей
-     60	003F  33 C9			 xor cx, cx	      ;	CX = счетчик слов
-     61
-     62	0041			     skip_spaces:
-     63	0041  AC			 lodsb		      ;	Читаем символ
-     64	0042  3C 00			 cmp al, 0	      ;	Если конец строки, завершаем
-     65	0044  74 1B			 je split_end
-     66	0046  3C 20			 cmp al, ' '	      ;	Пропускаем пробелы
-     67	0048  74 F7			 je skip_spaces
-     68
-     69					 ; Нашли начало слова
-     70	004A  4E			 dec si		      ;	Возвращаемся на первый символ	слова
-     71	004B  89 35			 mov [di], si	      ;	Сохраняем указатель на слово
-     72	004D  83 C7 02			 add di, 2	      ;	Переходим к следующему элементу	    +
-     73				     массива
-     74	0050  41			 inc cx		      ;	Увеличиваем счетчик слов
-     75
-     76	0051			     read_word:
-     77	0051  AC			 lodsb		      ;	Читаем символ
-     78	0052  3C 00			 cmp al, 0	      ;	Если конец строки, завершаем
-     79	0054  74 0A			 je word_end
-     80	0056  3C 20			 cmp al, ' '	      ;	Если пробел, завершаем слово
-     81	0058  75 F7			 jne read_word
-     82	005A  C6 44 FF 00		 mov byte ptr [si-1], 0	; Заменяем пробел	на 0 (конец строки)
-     83	005E  EB E1			 jmp skip_spaces      ;	Продолжаем поиск	слов
-     84
-     85	0060			     word_end:
-     86	0060  4E			 dec si		      ;	Корректируем указатель
-     87	0061			     split_end:
-     88	0061  89 0E 0012r		 mov word_count, cx   ;	Сохраняем количество	слов
-     89	0065  C3			 ret
-     90	0066			     split_string endp
-     91
-     92				     ; Собирает	строку с	одним пробелом между словами
-     93	0066			     build_temp_string proc
-     94	0066  8B 0E 0012r		 mov cx, word_count   ;	CX = количество слов
-     95	006A  E3 34			 jcxz empty_temp      ;	Если слов нет, пропускаем
-     96	006C  BE 0014r			 lea si, words	      ;	SI = массив указателей
-     97	006F  BF 003Cr			 mov di, offset	temp_buffer ; DI = буфер результата
-     98
-     99					 ; Копируем первое слово
-    100	0072  8B 34			 mov si, [si]	      ;	SI = адрес	первого слова
-    101	0074			     copy_first:
-    102	0074  8A 04			 mov al, [si]	      ;	Читаем символ
-    103	0076  84 C0			 test al, al	      ;	Если конец слова,	переходим дальше
-    104	0078  74 04			 jz first_done
-    105	007A  AA			 stosb		      ;	Записываем символ в буфер	 di = al; di++;	    +
-    106				     lodsb al =	si; si++
-    107	007B  46			 inc si		      ;	Переходим к следующему
-    108	007C  EB F6			 jmp copy_first
-    109
-    110	007E			     first_done:
-    111					 ; Обрабатываем остальные слова
-    112	007E  8B 0E 0012r		 mov cx, word_count
-    113	0082  49			 dec cx		      ;	Количество промежутков = слов - 1
-    114	0083  74 17			 jz temp_done	      ;	Если одно слово, завершаем
-Turbo Assembler	 Version 4.1	    05/30/25 09:09:22	    Page 3
-lab_2.asm
-
-
-
-    115	0085  BB 0016r			 lea bx, words + 2    ;	BX = указатель	на второе слово
-    116
-    117	0088			     next_temp_word:
-    118	0088  B0 20			 mov al, ' '	      ;	Вставляем пробел
-    119	008A  AA			 stosb
-    120	008B  8B 37			 mov si, [bx]	      ;	SI = адрес	слова
-    121	008D  83 C3 02			 add bx, 2	      ;	Переходим к следующему слову
-    122	0090			     copy_word_temp:
-    123	0090  8A 04			 mov al, [si]	      ;	Копируем слово
-    124	0092  84 C0			 test al, al
-    125	0094  74 04			 jz word_done_temp
-    126	0096  AA			 stosb
-    127	0097  46			 inc si
-    128	0098  EB F6			 jmp copy_word_temp
-    129
-    130	009A			     word_done_temp:
-    131	009A  E2 EC			 loop next_temp_word  ;	Повторяем для всех слов
-    132
-    133	009C			     temp_done:
-    134	009C  C6 05 00			 mov byte ptr [di], 0 ;	Завершаем строку	нулем
-    135	009F  C3			 ret
-    136
-    137	00A0			     empty_temp:
-    138	00A0  C6 06 003Cr 00		 mov byte ptr [temp_buffer], 0 ; Пустая строка
-    139	00A5  C3			 ret
-    140	00A6			     build_temp_string endp
-    141
-    142				     end main
-Turbo Assembler	 Version 4.1	    05/30/25 09:09:22	    Page 4
+     15	023A  0D 0A 24			 newline       db 13,10,'$'	     ; Перевод строки (CR+LF)
+     16
+     17	023D			     .code
+     18	0000			     main proc
+     19	0000  B8 0000s			 mov ax, @data	; Загружаем адрес	данных в	DS и ES
+     20	0003  8E D8			 mov ds, ax
+     21	0005  8E C0			 mov es, ax
+     22
+     23					 ; Вызов InsBlanks	с 5 параметрами:
+     24	0007  50 55 8B EC C7 46	02+	 push offset input_string   ; Адрес исходной строки
+     25	      0000r 5D
+     26	0011  FF 36 0010r		 push k			    ; Желаемая длина
+     27	0015  50 55 8B EC C7 46	02+	 push offset result_buffer  ; Буфер для	результата
+     28	      0012r 5D
+     29	001F  50 55 8B EC C7 46	02+	 push offset words_buffer   ; Буфер для	массива слов
+     30	      0112r 5D
+     31	0029  50 55 8B EC C7 46	02+	 push offset temp_buffer    ; Буфер для	нормализованной строки
+     32	      013Ar 5D
+     33	0033  E8 0000e			 call InsBlanks
+     34
+     35					 ; Выводим результат
+     36	0036  B4 09			 mov ah, 09h
+     37	0038  BA 0012r			 lea dx, result_buffer
+     38	003B  CD 21			 int 21h
+     39
+     40					 ; Выводим перевод строки
+     41	003D  BA 023Ar			 lea dx, newline
+     42	0040  CD 21			 int 21h
+     43
+     44					 ; Завершаем программу
+     45	0042  B8 4C00			 mov ax, 4C00h
+     46	0045  CD 21			 int 21h
+     47	0047			     main endp
+     48
+     49				     end main
+Turbo Assembler	 Version 4.1	    05/31/25 23:00:36	    Page 2
 Symbol Table
 
 
@@ -163,9 +60,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??DATE				  Text	 "05/30/25"
+??DATE				  Text	 "05/31/25"
 ??FILENAME			  Text	 "lab_2	  "
-??TIME				  Text	 "09:09:22"
+??TIME				  Text	 "23:00:36"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
 @CODE				  Text	 _TEXT
@@ -179,33 +76,19 @@ Symbol Name			  Type	 Value
 @MODEL				  Text	 2
 @STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-BUILD_TEMP_STRING		  Near	 _TEXT:0066
-COPY_FIRST			  Near	 _TEXT:0074
-COPY_WORD_TEMP			  Near	 _TEXT:0090
-EMPTY_TEMP			  Near	 _TEXT:00A0
-FIRST_DONE			  Near	 _TEXT:007E
 INPUT_STRING			  Byte	 DGROUP:0000
 INSBLANKS			  Near	 ----:---- Extern
 K				  Word	 DGROUP:0010
 MAIN				  Near	 _TEXT:0000
-NEWLINE				  Byte	 DGROUP:023C
-NEXT_TEMP_WORD			  Near	 _TEXT:0088
-READ_WORD			  Near	 _TEXT:0051
-RESULT_BUFFER			  Byte	 DGROUP:013C
-SKIP_SPACES			  Near	 _TEXT:0041
-SPLIT_END			  Near	 _TEXT:0061
-SPLIT_STRING			  Near	 _TEXT:0039
-TEMP_BUFFER			  Byte	 DGROUP:003C
-TEMP_DONE			  Near	 _TEXT:009C
-WORDS				  Word	 DGROUP:0014
-WORD_COUNT			  Word	 DGROUP:0012
-WORD_DONE_TEMP			  Near	 _TEXT:009A
-WORD_END			  Near	 _TEXT:0060
+NEWLINE				  Byte	 DGROUP:023A
+RESULT_BUFFER			  Byte	 DGROUP:0012
+TEMP_BUFFER			  Byte	 DGROUP:013A
+WORDS_BUFFER			  Word	 DGROUP:0112
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
   STACK				  16  0100 Para	  Stack	  STACK
-  _DATA				  16  023F Word	  Public  DATA
-_TEXT				  16  00A6 Word	  Public  CODE
+  _DATA				  16  023D Word	  Public  DATA
+_TEXT				  16  0047 Word	  Public  CODE
 
