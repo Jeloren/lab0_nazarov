@@ -4,7 +4,7 @@
 extrn InsBlanks:near ; Объявляем внешнюю процедуру InsBlanks
 
 .data
-    input_string  db 'Hello man cycle',0 ; Исходная строка
+    input_string  db 'Hello asm',0 ; Исходная строка
     k             dw 26                 ; Желаемая длина
     result_buffer db 256 dup('$')       ; Буфер для результата
     words_buffer  dw 20 dup(0)          ; Массив указателей на слова
