@@ -1,0 +1,517 @@
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 1
+lab3.asm
+
+
+
+      1					 .386
+      2	00000000			 .model	flat, stdcall
+      3					 option	casemap	:none
+      4
+      5					 includelib kernel32.lib
+      6					 includelib msvcrt.lib
+      7
+      8					 extern	ExitProcess@4: PROC
+      9					 extern	printf:	PROC
+     10					 extern	_getch:	PROC
+     11
+     12					 ; Макрос	для вывода комплексного числа
+     13					 print_complex MACRO real_part,	imag_part
+     14					     pushad
+     15					     fld real_part
+     16					     fstp qword	ptr [esp-8]
+     17					     fld imag_part
+     18					     fstp qword	ptr [esp-16]
+     19					     sub esp, 16
+     20					     push offset fmt_complex
+     21					     call printf
+     22					     add esp, 20
+     23					     popad
+     24					 ENDM
+     25
+     26	00000000			 .data
+     27					     ; Форматы вывода
+     28	00000000  25 2E	34 66 20 25 2B+	     fmt_complex  db "%.4f %+.4fi", 0Ah, 0
+     29		  2E 34	66 69 0A 00
+     30	0000000D  52 6F	6F 74 20 31 3A+	     fmt_root1	  db "Root 1: ", 0
+     31		  20 00
+     32	00000016  52 6F	6F 74 20 32 3A+	     fmt_root2	  db "Root 2: ", 0
+     33		  20 00
+     34	0000001F  50 72	65 73 73 20 61+	     fmt_pause	  db "Press any	key to exit...", 0
+     35		  6E 79	20 6B 65 79 20+
+     36		  74 6F	20 65 78 69 74+
+     37		  2E 2E	2E 00
+     38
+     39					     ; Комплексные коэффициенты квадратного		    +
+     40					 уравнения
+     41					     ; Пример: (1+0i)x² + (0+0i)x + (-1+0i) = 0 -> Корни: 1, -1
+     42	00000038  3FF0000000000000	     A_real dq	1.0   ;	Действительная часть	A
+     43	00000040  0000000000000000	     A_imag dq	0.0   ;	Мнимая часть	A
+     44	00000048  0000000000000000	     B_real dq	0.0   ;	Действительная часть	B
+     45	00000050  0000000000000000	     B_imag dq	0.0   ;	Мнимая часть	B
+     46	00000058  BFF0000000000000	     C_real dq -1.0   ;	Действительная часть	C
+     47	00000060  0000000000000000	     C_imag dq	0.0   ;	Мнимая часть	C
+     48
+     49					     ; Промежуточные переменные
+     50	00000068  4010000000000000	     four      dq 4.0
+     51	00000070  4000000000000000	     two       dq 2.0
+     52	00000078  BFF0000000000000	     neg_one   dq -1.0
+     53
+     54					     ; Результаты вычислений
+     55	00000080  ????????????????	     D_real    dq ?   ;	Действительная часть	дискриминанта
+     56	00000088  ????????????????	     D_imag    dq ?   ;	Мнимая часть	дискриминанта
+     57	00000090  ????????????????	     sqrtD_real	dq ?  ;	Действительная часть	sqrt(D)
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 2
+lab3.asm
+
+
+
+     58	00000098  ????????????????	     sqrtD_imag	dq ?  ;	Мнимая часть	sqrt(D)
+     59	000000A0  ????????????????	     root1_real	dq ?  ;	Действительная часть	корня 1
+     60	000000A8  ????????????????	     root1_imag	dq ?  ;	Мнимая часть	корня 1
+     61	000000B0  ????????????????	     root2_real	dq ?  ;	Действительная часть	корня 2
+     62	000000B8  ????????????????	     root2_imag	dq ?  ;	Мнимая часть	корня 2
+     63
+     64	000000C0			 .code
+     65	00000000			 main PROC
+     66					     ; Инициализация FPU
+     67	00000000  9B DB	E3		     finit
+     68
+     69					     ; Вычисление дискриминанта D = B² - 4AC
+     70					     ; Шаг 1: Вычисление B²
+     71	00000003  E8 0000012D		     call calc_B_square	  ; Результат:	D_real,	D_imag (пока содержит   +
+     72					 B²)
+     73
+     74					     ; Шаг 2: Вычисление 4AC
+     75	00000008  E8 0000015D		     call calc_4AC	  ; Результат:	root1_real, root1_imag (временное  +
+     76					 хранение)
+     77
+     78					     ; Шаг 3: D = B² - 4AC
+     79	0000000D  DD 05	00000080r	     fld D_real
+     80	00000013  DC 25	000000A0r	     fsub root1_real
+     81	00000019  DD 1D	00000080r	     fstp D_real	  ; D_real = B²_real -	4AC_real
+     82
+     83	0000001F  DD 05	00000088r	     fld D_imag
+     84	00000025  DC 25	000000A8r	     fsub root1_imag
+     85	0000002B  DD 1D	00000088r	     fstp D_imag	  ; D_imag = B²_imag -	4AC_imag
+     86
+     87					     ; Вычисление квадратного корня из дискриминанта
+     88	00000031  A5			     movsd xmm0, D_real
+**Error** lab3.asm(79) Extra characters	on line
+     89	00000032  A5			     movsd xmm1, D_imag
+**Error** lab3.asm(80) Extra characters	on line
+     90	00000033  E8 00000197		     call complex_sqrt	  ; Результат:	xmm0 = sqrtD_real, xmm1	= sqrtD_imag
+     91	00000038  A5			     movsd sqrtD_real, xmm0
+**Error** lab3.asm(82) Extra characters	on line
+     92	00000039  A5			     movsd sqrtD_imag, xmm1
+**Error** lab3.asm(83) Extra characters	on line
+     93
+     94					     ; Вычисление корней уравнения:
+     95					     ; root1 = (-B + sqrt(D)) /	(2A)
+     96					     ; root2 = (-B - sqrt(D)) /	(2A)
+     97
+     98					     ; Вычисление -B
+     99	0000003A  DD 05	00000048r	     fld B_real
+    100	00000040  D9 E0			     fchs
+    101	00000042  DD 1D	000000A0r	     fstp root1_real	  ; -B_real
+    102	00000048  DD 05	00000050r	     fld B_imag
+    103	0000004E  D9 E0			     fchs
+    104	00000050  DD 1D	000000A8r	     fstp root1_imag	  ; -B_imag
+    105
+    106					     ; Вычисление (-B	+ sqrt(D))
+    107	00000056  DD 05	000000A0r	     fld root1_real
+    108	0000005C  DC 05	00000090r	     fadd sqrtD_real
+    109	00000062  DD 1D	000000A0r	     fstp root1_real	  ; numerator1_real = -B_real +	sqrtD_real
+    110	00000068  DD 05	000000A8r	     fld root1_imag
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 3
+lab3.asm
+
+
+
+    111	0000006E  DC 05	00000098r	     fadd sqrtD_imag
+    112	00000074  DD 1D	000000A8r	     fstp root1_imag	  ; numerator1_imag = -B_imag +	sqrtD_imag
+    113
+    114					     ; Делим на 2A
+    115	0000007A  A5			     movsd xmm0, root1_real
+**Error** lab3.asm(106)	Extra characters on line
+    116	0000007B  A5			     movsd xmm1, root1_imag
+**Error** lab3.asm(107)	Extra characters on line
+    117	0000007C  A5			     movsd xmm2, A_real
+**Error** lab3.asm(108)	Extra characters on line
+    118	0000007D  A5			     movsd xmm3, A_imag
+**Error** lab3.asm(109)	Extra characters on line
+    119	0000007E  A5			     movsd xmm4, two
+**Error** lab3.asm(110)	Extra characters on line
+    120	0000007F  E8 0000019D		     call complex_div	   ; Результат: xmm0 =	root1_real, xmm1 = root1_imag
+    121	00000084  A5			     movsd root1_real, xmm0
+**Error** lab3.asm(112)	Extra characters on line
+    122	00000085  A5			     movsd root1_imag, xmm1
+**Error** lab3.asm(113)	Extra characters on line
+    123
+    124					     ; Вычисление (-B	- sqrt(D))
+    125	00000086  DD 05	000000A0r	     fld root1_real	  ; Временно сохраняем	-B_real
+    126	0000008C  DC 25	00000090r	     fsub sqrtD_real
+    127	00000092  DD 1D	000000B0r	     fstp root2_real	  ; numerator2_real = -B_real -	sqrtD_real
+    128	00000098  DD 05	000000A8r	     fld root1_imag	  ; Временно сохраняем	-B_imag
+    129	0000009E  DC 25	00000098r	     fsub sqrtD_imag
+    130	000000A4  DD 1D	000000B8r	     fstp root2_imag	  ; numerator2_imag = -B_imag -	sqrtD_imag
+    131
+    132					     ; Делим на 2A
+    133	000000AA  A5			     movsd xmm0, root2_real
+**Error** lab3.asm(124)	Extra characters on line
+    134	000000AB  A5			     movsd xmm1, root2_imag
+**Error** lab3.asm(125)	Extra characters on line
+    135	000000AC  A5			     movsd xmm2, A_real
+**Error** lab3.asm(126)	Extra characters on line
+    136	000000AD  A5			     movsd xmm3, A_imag
+**Error** lab3.asm(127)	Extra characters on line
+    137	000000AE  A5			     movsd xmm4, two
+**Error** lab3.asm(128)	Extra characters on line
+    138	000000AF  E8 0000016D		     call complex_div	   ; Результат: xmm0 =	root2_real, xmm1 = root2_imag
+    139	000000B4  A5			     movsd root2_real, xmm0
+**Error** lab3.asm(130)	Extra characters on line
+    140	000000B5  A5			     movsd root2_imag, xmm1
+**Error** lab3.asm(131)	Extra characters on line
+    141
+    142					     ; Вывод результатов
+    143	000000B6  68 0000000Dr		     push offset fmt_root1
+    144	000000BB  E8 00000000e		     call printf
+    145	000000C0  83 C4	04		     add esp, 4
+    146					     print_complex root1_real, root1_imag
+1   147	000000C3  60			     pushad
+1   148	000000C4  DD 05	000000A0r	     fld root1_real
+1   149	000000CA  DD 5C	24 F8		     fstp qword	ptr [esp-8]
+1   150	000000CE  DD 05	000000A8r	     fld root1_imag
+1   151	000000D4  DD 5C	24 F0		     fstp qword	ptr [esp-16]
+1   152	000000D8  83 EC	10		     sub esp, 16
+1   153	000000DB  68 00000000r		     push offset fmt_complex
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 4
+lab3.asm
+
+
+
+1   154	000000E0  E8 00000000e		     call printf
+1   155	000000E5  83 C4	14		     add esp, 20
+1   156	000000E8  61			     popad
+    157
+    158	000000E9  68 00000016r		     push offset fmt_root2
+    159	000000EE  E8 00000000e		     call printf
+    160	000000F3  83 C4	04		     add esp, 4
+    161					     print_complex root2_real, root2_imag
+1   162	000000F6  60			     pushad
+1   163	000000F7  DD 05	000000B0r	     fld root2_real
+1   164	000000FD  DD 5C	24 F8		     fstp qword	ptr [esp-8]
+1   165	00000101  DD 05	000000B8r	     fld root2_imag
+1   166	00000107  DD 5C	24 F0		     fstp qword	ptr [esp-16]
+1   167	0000010B  83 EC	10		     sub esp, 16
+1   168	0000010E  68 00000000r		     push offset fmt_complex
+1   169	00000113  E8 00000000e		     call printf
+1   170	00000118  83 C4	14		     add esp, 20
+1   171	0000011B  61			     popad
+    172
+    173					     ; Ожидание	нажатия клавиши
+    174	0000011C  68 0000001Fr		     push offset fmt_pause
+    175	00000121  E8 00000000e		     call printf
+    176	00000126  83 C4	04		     add esp, 4
+    177	00000129  E8 00000000e		     call _getch
+    178
+    179					     ; Завершение программы
+    180	0000012E  6A 00			     push 0
+    181	00000130  E8 00000000e		     call ExitProcess@4
+    182
+    183	00000135			 main ENDP
+    184
+    185					 ; Вычисление	B²
+    186	00000135			 calc_B_square PROC
+    187					     ; Действительная часть:	B_real² - B_imag²
+    188	00000135  DD 05	00000048r	     fld B_real
+    189	0000013B  DC 0D	00000048r	     fmul B_real
+    190	00000141  DD 05	00000050r	     fld B_imag
+    191	00000147  DC 0D	00000050r	     fmul B_imag
+    192	0000014D  DE E9			     fsub
+    193	0000014F  DD 1D	00000080r	     fstp D_real
+    194
+    195					     ; Мнимая часть:	2 * B_real * B_imag
+    196	00000155  DD 05	00000048r	     fld B_real
+    197	0000015B  DC 0D	00000050r	     fmul B_imag
+    198	00000161  D8 C0			     fadd st, st
+    199	00000163  DD 1D	00000088r	     fstp D_imag
+1   200	00000169  C3				 RET	 00000h
+    201	0000016A			 calc_B_square ENDP
+    202
+    203					 ; Вычисление	4AC
+    204	0000016A			 calc_4AC PROC
+    205					     ; Умножение A на C
+    206					     ; Действительная часть:	A_real*C_real -	A_imag*C_imag
+    207	0000016A  DD 05	00000038r	     fld A_real
+    208	00000170  DC 0D	00000058r	     fmul C_real
+    209	00000176  DD 05	00000040r	     fld A_imag
+    210	0000017C  DC 0D	00000060r	     fmul C_imag
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 5
+lab3.asm
+
+
+
+    211	00000182  DE E9			     fsub
+    212	00000184  DD 1D	000000A0r	     fstp root1_real   ; временное хранение (A*C)_real
+    213
+    214					     ; Мнимая часть:	A_real*C_imag +	A_imag*C_real
+    215	0000018A  DD 05	00000038r	     fld A_real
+    216	00000190  DC 0D	00000060r	     fmul C_imag
+    217	00000196  DD 05	00000040r	     fld A_imag
+    218	0000019C  DC 0D	00000058r	     fmul C_real
+    219	000001A2  DE C1			     fadd
+    220	000001A4  DD 1D	000000A8r	     fstp root1_imag   ; (A*C)_imag
+    221
+    222					     ; Умножение на 4
+    223	000001AA  DD 05	00000068r	     fld four
+    224	000001B0  DC 0D	000000A0r	     fmul root1_real
+    225	000001B6  DD 1D	000000A0r	     fstp root1_real   ; 4*(A*C)_real
+    226
+    227	000001BC  DD 05	00000068r	     fld four
+    228	000001C2  DC 0D	000000A8r	     fmul root1_imag
+    229	000001C8  DD 1D	000000A8r	     fstp root1_imag   ; 4*(A*C)_imag
+1   230	000001CE  C3				 RET	 00000h
+    231	000001CF			 calc_4AC ENDP
+    232
+    233					 ; Вычисление	квадратного корня комплексного числа
+    234					 ; Вход: xmm0 = real, xmm1 = imag
+    235					 ; Выход: xmm0 = sqrt_real, xmm1 =	sqrt_imag
+    236	000001CF			 complex_sqrt PROC
+    237					     ; Сохранение в стеке
+    238	000001CF  83 EC	10		     sub esp, 16
+    239	000001D2  A5			     movsd [esp], xmm0
+**Error** lab3.asm(210)	Extra characters on line
+    240	000001D3  A5			     movsd [esp+8], xmm1
+**Error** lab3.asm(211)	Extra characters on line
+    241
+    242					     ; Вычисление модуля r = sqrt(real² + imag²)
+    243	000001D4  DD 04	24		     fld qword ptr [esp]      ;	real
+    244	000001D7  D8 C8			     fmul st, st
+    245	000001D9  DD 44	24 08		     fld qword ptr [esp+8]    ;	imag
+    246	000001DD  D8 C8			     fmul st, st
+    247	000001DF  DE C1			     fadd		      ;	real² + imag²
+    248	000001E1  D9 FA			     fsqrt		      ;	r = sqrt(real²	+ imag²)
+    249	000001E3  DD 14	24		     fst qword ptr [esp]      ;	сохраняем r (временно)
+    250
+    251					     ; Вычисление действительной части корня
+    252					     ; x = sqrt((r + real) / 2)
+    253	000001E6  DD 04	24		     fld qword ptr [esp]      ;	r
+    254	000001E9  DC 04	24		     fadd qword	ptr [esp]     ;	r + real (оригинальный real	сохранен в +
+    255					 [esp+0]?)
+    256	000001EC  DC 35	00000070r	     fdiv two
+    257	000001F2  D9 FA			     fsqrt
+    258	000001F4  DD 5C	24 08		     fstp qword	ptr [esp+8]   ;	сохраняем x (временное хранение)
+    259
+    260					     ; Вычисление мнимой части корня
+    261					     ; y = sqrt((r - real) / 2)	* sign(imag)
+    262	000001F8  DD 04	24		     fld qword ptr [esp]      ;	r
+    263	000001FB  DC 24	24		     fsub qword	ptr [esp]     ;	r - real (оригинальный real)
+    264	000001FE  DC 35	00000070r	     fdiv two
+    265	00000204  D9 FA			     fsqrt		      ;	y_temp
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 6
+lab3.asm
+
+
+
+    266					     ; Учет	знака мнимой	части
+    267	00000206  DD 44	24 08		     fld qword ptr [esp+8]    ;	оригинальный imag
+    268	0000020A  D9 E4			     ftst
+    269	0000020C  9B DF	E0		     fstsw ax
+    270	0000020F  9E			     sahf
+    271	00000210  73 06	90 90 90 90	     jae positive
+    272	00000216  D9 E0			     fchs		      ;	если imag <	0, меняем	знак y
+    273	00000218			 positive:
+    274	00000218  DD 1C	24		     fstp qword	ptr [esp]     ;	сохраняем y
+    275
+    276					     ; Загрузка	результатов
+    277	0000021B  A5			     movsd xmm0, [esp+8]      ;	x (действительная	часть)
+**Error** lab3.asm(247)	Extra characters on line
+    278	0000021C  A5			     movsd xmm1, [esp]	      ;	y (мнимая	часть)
+**Error** lab3.asm(248)	Extra characters on line
+    279
+    280	0000021D  83 C4	10		     add esp, 16
+1   281	00000220  C3				 RET	 00000h
+    282	00000221			 complex_sqrt ENDP
+    283
+    284					 ; Деление комплексного числа на комплексное
+    285					 ; Вход:
+    286					 ;   xmm0, xmm1	= num_real, num_imag
+    287					 ;   xmm2, xmm3	= den_real, den_imag
+    288					 ;   xmm4 = scalar (скаляр для	деления)
+    289					 ; Выход: xmm0, xmm1 = res_real, res_imag
+    290	00000221			 complex_div PROC
+    291					     ; Вычисление знаменателя: den_real² + den_imag²
+    292	00000221  A5			     movsd xmm5, xmm2
+**Error** lab3.asm(262)	Extra characters on line
+    293					     mulsd xmm5, xmm5
+**Error** lab3.asm(263)	Illegal	instruction
+    294	00000222  A5			     movsd xmm6, xmm3
+**Error** lab3.asm(264)	Extra characters on line
+    295					     mulsd xmm6, xmm6
+**Error** lab3.asm(265)	Illegal	instruction
+    296					     addsd xmm5, xmm6	; denom	= den_real² + den_imag²
+**Error** lab3.asm(266)	Illegal	instruction
+    297
+    298					     ; Умножаем	знаменатель на скаляр
+    299					     mulsd xmm5, xmm4	; denom_scaled = denom * scalar
+**Error** lab3.asm(269)	Illegal	instruction
+    300
+    301					     ; Вычисление действительной части результата:
+    302					     ; (num_real*den_real + num_imag*den_imag) / denom_scaled
+    303	00000223  A5			     movsd xmm6, xmm0	; num_real
+**Error** lab3.asm(273)	Extra characters on line
+    304					     mulsd xmm6, xmm2	; num_real * den_real
+**Error** lab3.asm(274)	Illegal	instruction
+    305	00000224  A5			     movsd xmm7, xmm1	; num_imag
+**Error** lab3.asm(275)	Extra characters on line
+    306					     mulsd xmm7, xmm3	; num_imag * den_imag
+**Error** lab3.asm(276)	Illegal	instruction
+    307					     addsd xmm6, xmm7	; real_numerator
+**Error** lab3.asm(277)	Illegal	instruction
+    308					     divsd xmm6, xmm5	; res_real = real_numerator / denom_scaled
+**Error** lab3.asm(278)	Illegal	instruction
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 7
+lab3.asm
+
+
+
+    309
+    310					     ; Вычисление мнимой части результата:
+    311					     ; (num_imag*den_real - num_real*den_imag) / denom_scaled
+    312	00000225  A5			     movsd xmm7, xmm1	; num_imag
+**Error** lab3.asm(282)	Extra characters on line
+    313					     mulsd xmm7, xmm2	; num_imag * den_real
+**Error** lab3.asm(283)	Illegal	instruction
+    314					     mulsd xmm0, xmm3	; num_real * den_imag
+**Error** lab3.asm(284)	Illegal	instruction
+    315					     subsd xmm7, xmm0	; imag_numerator
+**Error** lab3.asm(285)	Illegal	instruction
+    316					     divsd xmm7, xmm5	; res_imag = imag_numerator / denom_scaled
+**Error** lab3.asm(286)	Illegal	instruction
+    317
+    318					     ; Возврат результатов
+    319	00000226  A5			     movsd xmm0, xmm6	; res_real
+**Error** lab3.asm(289)	Extra characters on line
+    320	00000227  A5			     movsd xmm1, xmm7	; res_imag
+**Error** lab3.asm(290)	Extra characters on line
+1   321	00000228  C3				 RET	 00000h
+    322	00000229			 complex_div ENDP
+    323
+    324					 END main
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 8
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??date				  Text	 "06-02-25"
+??filename			  Text	 "lab3	  "
+??time				  Text	 "20:41:20"
+??version			  Number 0500
+@32Bit				  Text	 1
+@CodeSize			  Text	 0
+@Cpu				  Text	 0F0FH
+@DataSize			  Text	 0
+@FileName			  Text	 lab3
+@Interface			  Text	 003h
+@Model				  Text	 1
+@WordSize			  Text	 4
+@code				  Text	 FLAT
+@curseg				  Text	 _TEXT
+@data				  Text	 FLAT
+@stack				  Text	 FLAT
+A_imag				  Qword	 FLAT:0040
+A_real				  Qword	 FLAT:0038
+B_imag				  Qword	 FLAT:0050
+B_real				  Qword	 FLAT:0048
+C_imag				  Qword	 FLAT:0060
+C_real				  Qword	 FLAT:0058
+D_imag				  Qword	 FLAT:0088
+D_real				  Qword	 FLAT:0080
+ExitProcess@4			  Near32 ----:---- Extern
+_getch				  Near32 ----:---- Extern
+calc_4AC			  Near32 FLAT:016A
+calc_B_square			  Near32 FLAT:0135
+complex_div			  Near32 FLAT:0221
+complex_sqrt			  Near32 FLAT:01CF
+fmt_complex			  Byte	 FLAT:0000
+fmt_pause			  Byte	 FLAT:001F
+fmt_root1			  Byte	 FLAT:000D
+fmt_root2			  Byte	 FLAT:0016
+four				  Qword	 FLAT:0068
+main				  Near32 FLAT:0000
+neg_one				  Qword	 FLAT:0078
+positive			  Near32 FLAT:0218
+printf				  Near32 ----:---- Extern
+root1_imag			  Qword	 FLAT:00A8
+root1_real			  Qword	 FLAT:00A0
+root2_imag			  Qword	 FLAT:00B8
+root2_real			  Qword	 FLAT:00B0
+sqrtD_imag			  Qword	 FLAT:0098
+sqrtD_real			  Qword	 FLAT:0090
+two				  Qword	 FLAT:0070
+
+Macro Name
+
+print_complex
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 9
+Symbol Table
+
+
+
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  _DATA				  32  00C0 Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  0229 Dword  Public  CODE
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:20	    Page 10
+Error Summary
+
+
+
+**Error** lab3.asm(79) Extra characters	on line
+**Error** lab3.asm(80) Extra characters	on line
+**Error** lab3.asm(82) Extra characters	on line
+**Error** lab3.asm(83) Extra characters	on line
+**Error** lab3.asm(106)	Extra characters on line
+**Error** lab3.asm(107)	Extra characters on line
+**Error** lab3.asm(108)	Extra characters on line
+**Error** lab3.asm(109)	Extra characters on line
+**Error** lab3.asm(110)	Extra characters on line
+**Error** lab3.asm(112)	Extra characters on line
+**Error** lab3.asm(113)	Extra characters on line
+**Error** lab3.asm(124)	Extra characters on line
+**Error** lab3.asm(125)	Extra characters on line
+**Error** lab3.asm(126)	Extra characters on line
+**Error** lab3.asm(127)	Extra characters on line
+**Error** lab3.asm(128)	Extra characters on line
+**Error** lab3.asm(130)	Extra characters on line
+**Error** lab3.asm(131)	Extra characters on line
+**Error** lab3.asm(210)	Extra characters on line
+**Error** lab3.asm(211)	Extra characters on line
+**Error** lab3.asm(247)	Extra characters on line
+**Error** lab3.asm(248)	Extra characters on line
+**Error** lab3.asm(262)	Extra characters on line
+**Error** lab3.asm(263)	Illegal	instruction
+**Error** lab3.asm(264)	Extra characters on line
+**Error** lab3.asm(265)	Illegal	instruction
+**Error** lab3.asm(266)	Illegal	instruction
+**Error** lab3.asm(269)	Illegal	instruction
+**Error** lab3.asm(273)	Extra characters on line
+**Error** lab3.asm(274)	Illegal	instruction
+**Error** lab3.asm(275)	Extra characters on line
+**Error** lab3.asm(276)	Illegal	instruction
+**Error** lab3.asm(277)	Illegal	instruction
+**Error** lab3.asm(278)	Illegal	instruction
+**Error** lab3.asm(282)	Extra characters on line
+**Error** lab3.asm(283)	Illegal	instruction
+**Error** lab3.asm(284)	Illegal	instruction
+**Error** lab3.asm(285)	Illegal	instruction
+**Error** lab3.asm(286)	Illegal	instruction
+**Error** lab3.asm(289)	Extra characters on line
+**Error** lab3.asm(290)	Extra characters on line
+

@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 5.0	    06-02-25 20:19:08	    Page 1
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:17	    Page 1
 labwin.asm
 
 
@@ -27,7 +27,7 @@ labwin.asm
      22	00000015  E8 00000000e		     call ExitProcess ;завершение программы
      23	0000001A			     ends
      24					 end start
-Turbo Assembler	 Version 5.0	    06-02-25 20:19:08	    Page 2
+Turbo Assembler	 Version 5.0	    06-02-25 20:41:17	    Page 2
 Symbol Table
 
 
@@ -37,7 +37,7 @@ Symbol Name			  Type	 Value
 
 ??date				  Text	 "06-02-25"
 ??filename			  Text	 "labwin  "
-??time				  Text	 "20:19:08"
+??time				  Text	 "20:41:17"
 ??version			  Number 0500
 @32Bit				  Text	 1
 @CodeSize			  Text	 0
