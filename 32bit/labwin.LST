@@ -1,0 +1,66 @@
+Turbo Assembler	 Version 5.0	    06-02-25 20:19:08	    Page 1
+labwin.asm
+
+
+
+      1					 includelib import32.lib ;Подключение библиотеки описния
+      2					  ;системных функций
+      3					 .386 ;включение 32-битного режима
+      4	00000000			 .model	flat ;модель памяти	FLAT
+      5					  extrn	MessageBoxA:proc ;Внешние процедуры
+      6					  extrn	ExitProcess:proc
+      7	00000000			 .data
+      8	00000000  48 65	6C 6C 6F 2C 20+	 mb_text db 'Hello, World!',0 ;Текстовые константы
+      9		  57 6F	72 6C 64 21 00
+     10	0000000E  4D 79	20 66 69 72 73+	 mb_title db 'My first program',0 ;для выполнения
+     11		  74 20	70 72 6F 67 72+
+     12		  61 6D	00
+     13					 ;программы
+     14	0000001F			 .code
+     15	00000000			 start:
+     16	00000000  6A 00			     push 0 ;Формирование
+     17	00000002  68 0000000Er		     push offset mb_title ;параметров
+     18	00000007  68 00000000r		     push offset mb_text ;в стеке	для;MessageBox -
+     19	0000000C  6A 00			     push 0 ;прямая передача
+     20	0000000E  E8 00000000e		     call MessageBoxA ;Вызов MessageBox
+     21	00000013  6A 00			     push 0 ;параметр для ExitProcess
+     22	00000015  E8 00000000e		     call ExitProcess ;завершение программы
+     23	0000001A			     ends
+     24					 end start
+Turbo Assembler	 Version 5.0	    06-02-25 20:19:08	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??date				  Text	 "06-02-25"
+??filename			  Text	 "labwin  "
+??time				  Text	 "20:19:08"
+??version			  Number 0500
+@32Bit				  Text	 1
+@CodeSize			  Text	 0
+@Cpu				  Text	 0F0FH
+@DataSize			  Text	 0
+@FileName			  Text	 labwin
+@Interface			  Text	 000h
+@Model				  Text	 1
+@WordSize			  Text	 4
+@code				  Text	 FLAT
+@curseg				  Text	 _TEXT
+@data				  Text	 FLAT
+@stack				  Text	 FLAT
+ExitProcess			  Near32 ----:---- Extern
+MessageBoxA			  Near32 ----:---- Extern
+mb_text				  Byte	 FLAT:0000
+mb_title			  Byte	 FLAT:000E
+start				  Near32 FLAT:0000
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  _DATA				  32  001F Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  001A Dword  Public  CODE
+
