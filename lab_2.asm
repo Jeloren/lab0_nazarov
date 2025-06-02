@@ -4,10 +4,10 @@
 extrn InsBlanks:near ; Объявляем внешнюю процедуру InsBlanks
 
 .data
-    input_string  db 'Hello asm',0 ; Исходная строка
+    input_string  db 'Hello asm world',0 ; Исходная строка
     k             dw 26                 ; Желаемая длина
     result_buffer db 256 dup('$')       ; Буфер для результата
-    words_buffer  dw 20 dup(0)          ; Массив указателей на слова
+    words_buffer  dw 20 dup(0)          ; Массив указателе на слова
     temp_buffer   db 256 dup('$')       ; Буфер для нормализованной строки
     newline       db 13,10,'$'          ; Перевод строки (CR+LF)
 
@@ -26,8 +26,8 @@ main proc
     call InsBlanks
 
     ; Выводим результат
-    mov ah, 09h
-    lea dx, result_buffer
+    mov ah, 09h  ; в ah заносится команда вызова, 
+    lea dx, result_buffer ; заносит в dx result_buffer
     int 21h
     
     ; Выводим перевод строки
