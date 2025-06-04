@@ -1,261 +1,272 @@
-Turbo Assembler	 Version 5.0	    06-04-25 16:18:15	    Page 1
+Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 1
 lab3.asm
 
 
 
       1					 includelib import32.lib
-      2
-      3					 .386
-      4	00000000			 .model	flat, stdcall
-      5
+      2					 .386
+      3	00000000			 .model	flat, stdcall
+      4
+      5					 ; Подключение внешней функции	завершения процесса
       6					 extern	ExitProcess: PROC
       7
       8	00000000			 .data
-      9					     ; Коэффициенты	(a, b, c) как комплексные	числа
-     10	00000000  3FF0000000000000	     a_re dq 1.0
-     11	00000008  4000000000000000	     a_im dq 2.0
-     12	00000010  4008000000000000	     b_re dq 3.0
-     13	00000018  C010000000000000	     b_im dq -4.0
-     14	00000020  4000000000000000	     c_re dq 2.0
-     15	00000028  3FF0000000000000	     c_im dq 1.0
-     16
-     17					     ; Переменные для промежуточных вычислений
-     18	00000030  ????????????????	     b_sq_re dq	?
-     19	00000038  ????????????????	     b_sq_im dq	?
-     20	00000040  ????????????????	     ac_re   dq	?
-     21	00000048  ????????????????	     ac_im   dq	?
-     22	00000050  ????????????????	     four_ac_re	dq ?
-     23	00000058  ????????????????	     four_ac_im	dq ?
-     24	00000060  ????????????????	     D_re    dq	?
-     25	00000068  ????????????????	     D_im    dq	?
-     26	00000070  ????????????????	     sqrt_mod dq ?
-     27	00000078  ????????????????	     theta    dq ?
-     28	00000080  ????????????????	     theta_half	dq ?
-     29	00000088  ????????????????	     cos_half dq ?
-     30	00000090  ????????????????	     sin_half dq ?
-     31	00000098  ????????????????	     sqrt_re dq	?
-     32	000000A0  ????????????????	     sqrt_im dq	?
-     33	000000A8  ????????????????	     root1_num_re dq ?
-     34	000000B0  ????????????????	     root1_num_im dq ?
-     35	000000B8  ????????????????	     root2_num_re dq ?
-     36	000000C0  ????????????????	     root2_num_im dq ?
-     37	000000C8  ????????????????	     denom_re dq ?
-     38	000000D0  ????????????????	     denom_im dq ?
-     39	000000D8  ????????????????	     denom_mod_sq dq ?
-     40	000000E0  ????????????????	     root1_re dq ?
-     41	000000E8  ????????????????	     root1_im dq ?
-     42	000000F0  ????????????????	     root2_re dq ?
-     43	000000F8  ????????????????	     root2_im dq ?
-     44
-     45	00000100			 .code
-     46	00000000			 main:
-     47	00000000  9B DB	E3		     FINIT
-     48
-     49					     ; Вычисление дискриминанта D = b² - 4ac
-     50
-     51					     ; b² = (b_re^2 - b_im^2) + 2*b_re*b_im*i
-     52	00000003  DD 05	00000010r	     FLD b_re
-     53	00000009  D8 C8			     FMUL ST(0), ST(0)
-     54	0000000B  DD 05	00000018r	     FLD b_im
-     55	00000011  D8 C8			     FMUL ST(0), ST(0)
-     56	00000013  DE E9			     FSUB
-     57	00000015  DD 1D	00000030r	     FSTP b_sq_re
-Turbo Assembler	 Version 5.0	    06-04-25 16:18:15	    Page 2
+      9					     ; Коэффициенты	уравнения a*z² + b*z + c = 0			    +
+     10					 (комплексные числа)
+     11	00000000  3FF0000000000000	     a_re dq 1.0      ;	Действительная часть	a
+     12	00000008  4000000000000000	     a_im dq 2.0      ;	Мнимая часть	a
+     13	00000010  4008000000000000	     b_re dq 3.0      ;	Действительная часть	b
+     14	00000018  C010000000000000	     b_im dq -4.0     ;	Мнимая часть	b
+     15	00000020  4000000000000000	     c_re dq 2.0      ;	Действительная часть	c
+     16	00000028  3FF0000000000000	     c_im dq 1.0      ;	Мнимая часть	c
+     17
+     18					     ; Временные переменные для вычислений
+     19	00000030  ????????????????	     b_sq_re dq	?     ;	Вещественная часть b²
+     20	00000038  ????????????????	     b_sq_im dq	?     ;	Мнимая часть	b²
+     21	00000040  ????????????????	     ac_re   dq	?     ;	Вещественная часть a*c
+     22	00000048  ????????????????	     ac_im   dq	?     ;	Мнимая часть	a*c
+     23	00000050  ????????????????	     four_ac_re	dq ?  ;	Вещественная часть 4ac
+     24	00000058  ????????????????	     four_ac_im	dq ?  ;	Мнимая часть	4ac
+     25	00000060  ????????????????	     D_re    dq	?     ;	Вещественная часть дискриминанта
+     26	00000068  ????????????????	     D_im    dq	?     ;	Мнимая часть	дискриминанта
+     27	00000070  ????????????????	     sqrt_mod dq ?    ;	Модуль корня	из D
+     28	00000078  ????????????????	     theta    dq ?    ;	Угол θ для полярной формы D
+     29	00000080  ????????????????	     theta_half	dq ?  ;	θ/2
+     30	00000088  ????????????????	     cos_half dq ?    ;	cos(θ/2)
+     31	00000090  ????????????????	     sin_half dq ?    ;	sin(θ/2)
+     32	00000098  ????????????????	     sqrt_re dq	?     ;	Вещественная часть sqrt(D)
+     33	000000A0  ????????????????	     sqrt_im dq	?     ;	Мнимая часть	sqrt(D)
+     34	000000A8  ????????????????	     root1_num_re dq ? ; Числитель 1-го корня (вещественная)
+     35	000000B0  ????????????????	     root1_num_im dq ? ; Числитель 1-го корня (мнимая)
+     36	000000B8  ????????????????	     root2_num_re dq ? ; Числитель 2-го корня (вещественная)
+     37	000000C0  ????????????????	     root2_num_im dq ? ; Числитель 2-го корня (мнимая)
+     38	000000C8  ????????????????	     denom_re dq ?    ;	Знаменатель (вещественная часть 2a)
+     39	000000D0  ????????????????	     denom_im dq ?    ;	Знаменатель (мнимая часть	2a)
+     40	000000D8  ????????????????	     denom_mod_sq dq ? ; Квадрат	модуля знаменателя
+     41	000000E0  ????????????????	     root1_re dq ?    ;	Итоговый корень 1	(вещественная)
+     42	000000E8  ????????????????	     root1_im dq ?    ;	Итоговый корень 1	(мнимая)
+     43	000000F0  ????????????????	     root2_re dq ?    ;	Итоговый корень 2	(вещественная)
+     44	000000F8  ????????????????	     root2_im dq ?    ;	Итоговый корень 2	(мнимая)
+     45
+     46	00000100			 .code
+     47	00000000			 main:
+     48	00000000  9B DB	E3		     FINIT		  ; Инициализация FPU
+     49
+     50					     ; === Вычисление	дискриминанта D = b² - 4ac ===
+     51
+     52					     ; --- Вычисление	b² = (b_re + i*b_im)²	---
+     53	00000003  DD 05	00000010r	     FLD b_re		  ; ST(0) = b_re
+     54	00000009  D8 C8			     FMUL ST(0), ST(0)	  ; ST(0) = b_re²
+     55	0000000B  DD 05	00000018r	     FLD b_im		  ; ST(0) = b_im, ST(1)	= b_re²
+     56	00000011  D8 C8			     FMUL ST(0), ST(0)	  ; ST(0) = b_im²
+     57	00000013  DE E9			     FSUB		  ; ST(0) = b_re² - b_im² (вещественная часть b²)
+Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 2
 lab3.asm
 
 
 
-     58
-     59	0000001B  DD 05	00000010r	     FLD b_re
-     60	00000021  DD 05	00000018r	     FLD b_im
-     61	00000027  DE C9			     FMUL
-     62	00000029  D8 C0			     FADD ST(0), ST(0)
-     63	0000002B  DD 1D	00000038r	     FSTP b_sq_im
-     64
-     65					     ; a*c = (a_re*c_re	- a_im*c_im) + (a_re*c_im + a_im*c_re)*i
-     66	00000031  DD 05	00000000r	     FLD a_re
-     67	00000037  DC 0D	00000020r	     FMUL c_re
-     68	0000003D  DD 05	00000008r	     FLD a_im
-     69	00000043  DC 0D	00000028r	     FMUL c_im
-     70	00000049  DE E9			     FSUB
-     71	0000004B  DD 1D	00000040r	     FSTP ac_re
-     72
-     73	00000051  DD 05	00000000r	     FLD a_re
-     74	00000057  DC 0D	00000028r	     FMUL c_im
-     75	0000005D  DD 05	00000008r	     FLD a_im
-     76	00000063  DC 0D	00000020r	     FMUL c_re
-     77	00000069  DE C1			     FADD
-     78	0000006B  DD 1D	00000048r	     FSTP ac_im
-     79
-     80					     ; 4ac
-     81	00000071  DD 05	00000040r	     FLD ac_re
-     82	00000077  D8 C0			     FADD ST(0), ST(0)
-     83	00000079  D8 C0			     FADD ST(0), ST(0)
-     84	0000007B  DD 1D	00000050r	     FSTP four_ac_re
-     85
-     86	00000081  DD 05	00000048r	     FLD ac_im
-     87	00000087  D8 C0			     FADD ST(0), ST(0)
-     88	00000089  D8 C0			     FADD ST(0), ST(0)
-     89	0000008B  DD 1D	00000058r	     FSTP four_ac_im
-     90
-     91					     ; D = b² - 4ac
-     92	00000091  DD 05	00000030r	     FLD b_sq_re
-     93	00000097  DD 05	00000050r	     FLD four_ac_re
-     94	0000009D  DE E9			     FSUB
-     95	0000009F  DD 1D	00000060r	     FSTP D_re
-     96
-     97	000000A5  DD 05	00000038r	     FLD b_sq_im
-     98	000000AB  DD 05	00000058r	     FLD four_ac_im
-     99	000000B1  DE E9			     FSUB
-    100	000000B3  DD 1D	00000068r	     FSTP D_im
-    101
-    102					     ; Вычисление sqrt(D) через полярные	координаты
-    103					     ; Модуль D
-    104	000000B9  DD 05	00000060r	     FLD D_re
-    105	000000BF  D8 C8			     FMUL ST(0), ST(0)
-    106	000000C1  DD 05	00000068r	     FLD D_im
-    107	000000C7  D8 C8			     FMUL ST(0), ST(0)
-    108	000000C9  DE C1			     FADD
-    109	000000CB  D9 FA			     FSQRT
-    110	000000CD  D9 FA			     FSQRT
-    111	000000CF  DD 1D	00000070r	     FSTP sqrt_mod
-    112
-    113					     ; Угол	θ = arctan2(D_im, D_re)
-    114	000000D5  DD 05	00000060r	     FLD D_re
-Turbo Assembler	 Version 5.0	    06-04-25 16:18:15	    Page 3
+     58	00000015  DD 1D	00000030r	     FSTP b_sq_re	  ; Сохранить в b_sq_re
+     59
+     60	0000001B  DD 05	00000010r	     FLD b_re		  ; ST(0) = b_re
+     61	00000021  DD 05	00000018r	     FLD b_im		  ; ST(0) = b_im, ST(1)	= b_re
+     62	00000027  DE C9			     FMUL		  ; ST(0) = b_re * b_im
+     63	00000029  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) = 2*b_re*b_im	(мнимая часть b²)
+     64	0000002B  DD 1D	00000038r	     FSTP b_sq_im	  ; Сохранить в b_sq_im
+     65
+     66					     ; --- Вычисление	4ac = 4*(a*c) ---
+     67					     ; Произведение	a*c = (a_re + i*a_im)*(c_re + i*c_im)
+     68	00000031  DD 05	00000000r	     FLD a_re		  ; ST(0) = a_re
+     69	00000037  DC 0D	00000020r	     FMUL c_re		  ; ST(0) = a_re*c_re
+     70	0000003D  DD 05	00000008r	     FLD a_im		  ; ST(0) = a_im, ST(1)	= a_re*c_re
+     71	00000043  DC 0D	00000028r	     FMUL c_im		  ; ST(0) = a_im*c_im
+     72	00000049  DE E9			     FSUB		  ; ST(0) = a_re*c_re -	a_im*c_im (вещественная	    +
+     73					 часть a*c)
+     74	0000004B  DD 1D	00000040r	     FSTP ac_re		  ; Сохранить в ac_re
+     75
+     76	00000051  DD 05	00000000r	     FLD a_re		  ; ST(0) = a_re
+     77	00000057  DC 0D	00000028r	     FMUL c_im		  ; ST(0) = a_re*c_im
+     78	0000005D  DD 05	00000008r	     FLD a_im		  ; ST(0) = a_im, ST(1)	= a_re*c_im
+     79	00000063  DC 0D	00000020r	     FMUL c_re		  ; ST(0) = a_im*c_re
+     80	00000069  DE C1			     FADD		  ; ST(0) = a_re*c_im +	a_im*c_re (мнимая	часть a*c)
+     81	0000006B  DD 1D	00000048r	     FSTP ac_im		  ; Сохранить в ac_im
+     82
+     83					     ; Умножение на 4
+     84	00000071  DD 05	00000040r	     FLD ac_re		  ; ST(0) = ac_re
+     85	00000077  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) *= 2
+     86	00000079  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) *= 2 (итого *4)
+     87	0000007B  DD 1D	00000050r	     FSTP four_ac_re	  ; Сохранить в four_ac_re
+     88
+     89	00000081  DD 05	00000048r	     FLD ac_im		  ; ST(0) = ac_im
+     90	00000087  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) *= 2
+     91	00000089  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) *= 2 (итого *4)
+     92	0000008B  DD 1D	00000058r	     FSTP four_ac_im	  ; Сохранить в four_ac_im
+     93
+     94					     ; --- D = b² - 4ac ---
+     95	00000091  DD 05	00000030r	     FLD b_sq_re	  ; ST(0) = b_sq_re
+     96	00000097  DD 05	00000050r	     FLD four_ac_re	  ; ST(0) = four_ac_re,	ST(1) =	b_sq_re
+     97	0000009D  DE E9			     FSUB		  ; ST(0) = b_sq_re - four_ac_re
+     98	0000009F  DD 1D	00000060r	     FSTP D_re		  ; Сохранить вещественную	часть D
+     99
+    100	000000A5  DD 05	00000038r	     FLD b_sq_im	  ; ST(0) = b_sq_im
+    101	000000AB  DD 05	00000058r	     FLD four_ac_im	  ; ST(0) = four_ac_im,	ST(1) =	b_sq_im
+    102	000000B1  DE E9			     FSUB		  ; ST(0) = b_sq_im - four_ac_im
+    103	000000B3  DD 1D	00000068r	     FSTP D_im		  ; Сохранить мнимую часть D
+    104
+    105					     ; === Вычисление	sqrt(D)	через полярные координаты ===
+    106					     ; --- Модуль	D ---
+    107	000000B9  DD 05	00000060r	     FLD D_re		  ; ST(0) = D_re
+    108	000000BF  D8 C8			     FMUL ST(0), ST(0)	  ; ST(0) = D_re²
+    109	000000C1  DD 05	00000068r	     FLD D_im		  ; ST(0) = D_im, ST(1)	= D_re²
+    110	000000C7  D8 C8			     FMUL ST(0), ST(0)	  ; ST(0) = D_im²
+    111	000000C9  DE C1			     FADD		  ; ST(0) = D_re² + D_im²
+    112	000000CB  D9 FA			     FSQRT		  ; ST(0) = sqrt(D_re²	+ D_im²) (модуль	D)
+    113	000000CD  D9 FA			     FSQRT		  ; ST(0) = sqrt(модуля) (т.к. sqrt(D) = sqrt(|D|))
+    114	000000CF  DD 1D	00000070r	     FSTP sqrt_mod	  ; Сохранить модуль корня
+Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 3
 lab3.asm
 
 
 
-    115	000000DB  DD 05	00000068r	     FLD D_im
-    116	000000E1  D9 F3			     FPATAN
-    117	000000E3  DD 1D	00000078r	     FSTP theta
-    118
-    119					     ; θ/2
-    120	000000E9  DD 05	00000078r	     FLD theta
-    121	000000EF  D9 E8			     FLD1
-    122	000000F1  D8 C0			     FADD ST(0), ST(0)
-    123	000000F3  DE F9			     FDIV
-    124	000000F5  DD 1D	00000080r	     FSTP theta_half
-    125
-    126					     ; cos(theta/2) и sin(theta/2)
-    127	000000FB  DD 05	00000080r	     FLD theta_half
-    128	00000101  D9 FF			     FCOS
-    129	00000103  DD 1D	00000088r	     FSTP cos_half
-    130
-    131	00000109  DD 05	00000080r	     FLD theta_half
-    132	0000010F  D9 FE			     FSIN
-    133	00000111  DD 1D	00000090r	     FSTP sin_half
-    134
-    135					     ; sqrt(D) = sqrt_mod*(cos(theta/2)	+ i*sin(theta/2))
-    136	00000117  DD 05	00000070r	     FLD sqrt_mod
-    137	0000011D  DC 0D	00000088r	     FMUL cos_half
-    138	00000123  DD 1D	00000098r	     FSTP sqrt_re
-    139
-    140	00000129  DD 05	00000070r	     FLD sqrt_mod
-    141	0000012F  DC 0D	00000090r	     FMUL sin_half
-    142	00000135  DD 1D	000000A0r	     FSTP sqrt_im
-    143
-    144					     ; Вычисление корней: (-b ± sqrt(D)) / (2a)
-    145
-    146					     ; Числитель для root1:	-b + sqrt(D)
-    147	0000013B  DD 05	00000098r	     FLD sqrt_re
-    148	00000141  DD 05	00000010r	     FLD b_re
-    149	00000147  D9 E0			     FCHS
-    150	00000149  DE C1			     FADD
-    151	0000014B  DD 1D	000000A8r	     FSTP root1_num_re
-    152
-    153	00000151  DD 05	000000A0r	     FLD sqrt_im
-    154	00000157  DD 05	00000018r	     FLD b_im
-    155	0000015D  D9 E0			     FCHS
-    156	0000015F  DE C1			     FADD
-    157	00000161  DD 1D	000000B0r	     FSTP root1_num_im
-    158
-    159					     ; Числитель для root2:	-b - sqrt(D)
-    160	00000167  DD 05	00000098r	     FLD sqrt_re
-    161	0000016D  DD 05	00000010r	     FLD b_re
-    162	00000173  D9 E0			     FCHS
-    163	00000175  DE E9			     FSUB
-    164	00000177  DD 1D	000000B8r	     FSTP root2_num_re
-    165
-    166	0000017D  DD 05	000000A0r	     FLD sqrt_im
-    167	00000183  DD 05	00000018r	     FLD b_im
-    168	00000189  D9 E0			     FCHS
-    169	0000018B  DE E9			     FSUB
-    170	0000018D  DD 1D	000000C0r	     FSTP root2_num_im
-    171
-Turbo Assembler	 Version 5.0	    06-04-25 16:18:15	    Page 4
+    115
+    116					     ; --- Угол θ = arctan2(D_im, D_re) ---
+    117	000000D5  DD 05	00000060r	     FLD D_re		  ; ST(0) = D_re
+    118	000000DB  DD 05	00000068r	     FLD D_im		  ; ST(0) = D_im, ST(1)	= D_re
+    119	000000E1  D9 F3			     FPATAN		  ; ST(0) = arctan(D_im/D_re) (угол	θ)
+    120	000000E3  DD 1D	00000078r	     FSTP theta		  ; Сохранить θ
+    121
+    122					     ; --- θ/2	---
+    123	000000E9  DD 05	00000078r	     FLD theta		  ; ST(0) = θ
+    124	000000EF  D9 E8			     FLD1		  ; ST(0) = 1.0, ST(1) = θ
+    125	000000F1  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) = 2.0
+    126	000000F3  DE F9			     FDIV		  ; ST(0) = θ / 2
+    127	000000F5  DD 1D	00000080r	     FSTP theta_half	  ; Сохранить θ/2
+    128
+    129					     ; --- cos(θ/2) и	sin(θ/2) ---
+    130	000000FB  DD 05	00000080r	     FLD theta_half	  ; ST(0) = θ/2
+    131	00000101  D9 FF			     FCOS		  ; ST(0) = cos(θ/2)
+    132	00000103  DD 1D	00000088r	     FSTP cos_half	  ; Сохранить cos(θ/2)
+    133
+    134	00000109  DD 05	00000080r	     FLD theta_half	  ; ST(0) = θ/2
+    135	0000010F  D9 FE			     FSIN		  ; ST(0) = sin(θ/2)
+    136	00000111  DD 1D	00000090r	     FSTP sin_half	  ; Сохранить sin(θ/2)
+    137
+    138					     ; --- sqrt(D) = sqrt_mod*(cos(θ/2) + i*sin(θ/2))	---
+    139	00000117  DD 05	00000070r	     FLD sqrt_mod	  ; ST(0) = sqrt_mod
+    140	0000011D  DC 0D	00000088r	     FMUL cos_half	  ; ST(0) = sqrt_mod * cos(θ/2)
+    141	00000123  DD 1D	00000098r	     FSTP sqrt_re	  ; Сохранить вещественную	часть sqrt(D)
+    142
+    143	00000129  DD 05	00000070r	     FLD sqrt_mod	  ; ST(0) = sqrt_mod
+    144	0000012F  DC 0D	00000090r	     FMUL sin_half	  ; ST(0) = sqrt_mod * sin(θ/2)
+    145	00000135  DD 1D	000000A0r	     FSTP sqrt_im	  ; Сохранить мнимую часть sqrt(D)
+    146
+    147					     ; === Вычисление	корней: (-b ± sqrt(D)) /	(2a) ===
+    148					     ; --- Числитель для первого корня:	(-b + sqrt(D)) ---
+    149	0000013B  DD 05	00000098r	     FLD sqrt_re	  ; ST(0) = sqrt_re
+    150	00000141  DD 05	00000010r	     FLD b_re		  ; ST(0) = b_re, ST(1)	= sqrt_re
+    151	00000147  D9 E0			     FCHS		  ; ST(0) = -b_re
+    152	00000149  DE C1			     FADD		  ; ST(0) = -b_re + sqrt_re
+    153	0000014B  DD 1D	000000A8r	     FSTP root1_num_re	  ; Сохранить вещественную	часть	    +
+    154					 числителя 1
+    155
+    156	00000151  DD 05	000000A0r	     FLD sqrt_im	  ; ST(0) = sqrt_im
+    157	00000157  DD 05	00000018r	     FLD b_im		  ; ST(0) = b_im, ST(1)	= sqrt_im
+    158	0000015D  D9 E0			     FCHS		  ; ST(0) = -b_im
+    159	0000015F  DE C1			     FADD		  ; ST(0) = -b_im + sqrt_im
+    160	00000161  DD 1D	000000B0r	     FSTP root1_num_im	  ; Сохранить мнимую часть числителя 1
+    161
+    162					     ; --- Числитель для второго корня:	(-b - sqrt(D)) ---
+    163	00000167  DD 05	00000098r	     FLD sqrt_re	  ; ST(0) = sqrt_re
+    164	0000016D  DD 05	00000010r	     FLD b_re		  ; ST(0) = b_re, ST(1)	= sqrt_re
+    165	00000173  D9 E0			     FCHS		  ; ST(0) = -b_re
+    166	00000175  DE E9			     FSUB		  ; ST(0) = -b_re - sqrt_re
+    167	00000177  DD 1D	000000B8r	     FSTP root2_num_re	  ; Сохранить вещественную	часть	    +
+    168					 числителя 2
+    169
+    170	0000017D  DD 05	000000A0r	     FLD sqrt_im	  ; ST(0) = sqrt_im
+    171	00000183  DD 05	00000018r	     FLD b_im		  ; ST(0) = b_im, ST(1)	= sqrt_im
+Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 4
 lab3.asm
 
 
 
-    172					     ; Знаменатель: 2a
-    173	00000193  DD 05	00000000r	     FLD a_re
-    174	00000199  D8 C0			     FADD ST(0), ST(0)
-    175	0000019B  DD 1D	000000C8r	     FSTP denom_re
-    176
-    177	000001A1  DD 05	00000008r	     FLD a_im
-    178	000001A7  D8 C0			     FADD ST(0), ST(0)
-    179	000001A9  DD 1D	000000D0r	     FSTP denom_im
-    180
-    181					     ; Модуль знаменателя в квадрате
-    182	000001AF  DD 05	000000C8r	     FLD denom_re
-    183	000001B5  D8 C8			     FMUL ST(0), ST(0)
-    184	000001B7  DD 05	000000D0r	     FLD denom_im
-    185	000001BD  D8 C8			     FMUL ST(0), ST(0)
-    186	000001BF  DE C1			     FADD
-    187	000001C1  DD 1D	000000D8r	     FSTP denom_mod_sq
-    188
-    189					     ; Корень 1: (num_re + num_im*i) / denom
-    190					     ; Действительная часть
-    191	000001C7  DD 05	000000A8r	     FLD root1_num_re
-    192	000001CD  DC 0D	000000C8r	     FMUL denom_re
-    193	000001D3  DD 05	000000B0r	     FLD root1_num_im
-    194	000001D9  DC 0D	000000D0r	     FMUL denom_im
-    195	000001DF  DE C1			     FADD
-    196	000001E1  DC 35	000000D8r	     FDIV denom_mod_sq
-    197	000001E7  DD 1D	000000E0r	     FSTP root1_re
-    198
-    199					     ; Мнимая часть
-    200	000001ED  DD 05	000000B0r	     FLD root1_num_im
-    201	000001F3  DC 0D	000000C8r	     FMUL denom_re
-    202	000001F9  DD 05	000000A8r	     FLD root1_num_re
-    203	000001FF  DC 0D	000000D0r	     FMUL denom_im
-    204	00000205  DE E9			     FSUB
-    205	00000207  DC 35	000000D8r	     FDIV denom_mod_sq
-    206	0000020D  DD 1D	000000E8r	     FSTP root1_im
-    207
-    208					     ; Корень 2
-    209					     ; Действительная часть
-    210	00000213  DD 05	000000B8r	     FLD root2_num_re
-    211	00000219  DC 0D	000000C8r	     FMUL denom_re
-    212	0000021F  DD 05	000000C0r	     FLD root2_num_im
-    213	00000225  DC 0D	000000D0r	     FMUL denom_im
-    214	0000022B  DE C1			     FADD
-    215	0000022D  DC 35	000000D8r	     FDIV denom_mod_sq
-    216	00000233  DD 1D	000000F0r	     FSTP root2_re
-    217
-    218					     ; Мнимая часть
-    219	00000239  DD 05	000000C0r	     FLD root2_num_im
-    220	0000023F  DC 0D	000000C8r	     FMUL denom_re
-    221	00000245  DD 05	000000B8r	     FLD root2_num_re
-    222	0000024B  DC 0D	000000D0r	     FMUL denom_im
-    223	00000251  DE E9			     FSUB
-    224	00000253  DC 35	000000D8r	     FDIV denom_mod_sq
-    225	00000259  DD 1D	000000F8r	     FSTP root2_im
-    226
-    227					     ; Результаты сохранены в root1_re, root1_im, root2_re,	root2_im
+    172	00000189  D9 E0			     FCHS		  ; ST(0) = -b_im
+    173	0000018B  DE E9			     FSUB		  ; ST(0) = -b_im - sqrt_im
+    174	0000018D  DD 1D	000000C0r	     FSTP root2_num_im	  ; Сохранить мнимую часть числителя 2
+    175
+    176					     ; --- Знаменатель: 2a ---
+    177	00000193  DD 05	00000000r	     FLD a_re		  ; ST(0) = a_re
+    178	00000199  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) = 2*a_re
+    179	0000019B  DD 1D	000000C8r	     FSTP denom_re	  ; Сохранить вещественную	часть	    +
+    180					 знаменателя
+    181
+    182	000001A1  DD 05	00000008r	     FLD a_im		  ; ST(0) = a_im
+    183	000001A7  D8 C0			     FADD ST(0), ST(0)	  ; ST(0) = 2*a_im
+    184	000001A9  DD 1D	000000D0r	     FSTP denom_im	  ; Сохранить мнимую часть знаменателя
+    185
+    186					     ; --- Квадрат модуля знаменателя для деления ---
+    187	000001AF  DD 05	000000C8r	     FLD denom_re	  ; ST(0) = denom_re
+    188	000001B5  D8 C8			     FMUL ST(0), ST(0)	  ; ST(0) = denom_re²
+    189	000001B7  DD 05	000000D0r	     FLD denom_im	  ; ST(0) = denom_im, ST(1) = denom_re²
+    190	000001BD  D8 C8			     FMUL ST(0), ST(0)	  ; ST(0) = denom_im²
+    191	000001BF  DE C1			     FADD		  ; ST(0) = denom_re² + denom_im²
+    192	000001C1  DD 1D	000000D8r	     FSTP denom_mod_sq	  ; Сохранить квадрат модуля		    +
+    193					 знаменателя
+    194
+    195					     ; --- Корень	1: (root1_num_re + i*root1_num_im) / (denom_re + i*denom_im) ---
+    196					     ; Вещественная	часть:
+    197	000001C7  DD 05	000000A8r	     FLD root1_num_re	  ; ST(0) = root1_num_re
+    198	000001CD  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root1_num_re * denom_re
+    199	000001D3  DD 05	000000B0r	     FLD root1_num_im	  ; ST(0) = root1_num_im, ST(1)	= (root1_num_re	* denom_re)
+    200	000001D9  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root1_num_im * denom_im
+    201	000001DF  DE C1			     FADD		  ; ST(0) = root1_num_re*denom_re + root1_num_im*denom_im
+    202	000001E1  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root1_num_re*denom_re + root1_num_im*denom_im) /	    +
+    203					 denom_mod_sq
+    204	000001E7  DD 1D	000000E0r	     FSTP root1_re	  ; Сохранить вещественную	часть	    +
+    205					 корня 1
+    206
+    207					     ; Мнимая часть:
+    208	000001ED  DD 05	000000B0r	     FLD root1_num_im	  ; ST(0) = root1_num_im
+    209	000001F3  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root1_num_im * denom_re
+    210	000001F9  DD 05	000000A8r	     FLD root1_num_re	  ; ST(0) = root1_num_re, ST(1)	= (root1_num_im	* denom_re)
+    211	000001FF  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root1_num_re * denom_im
+    212	00000205  DE E9			     FSUB		  ; ST(0) = root1_num_im*denom_re - root1_num_re*denom_im
+    213	00000207  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root1_num_im*denom_re - root1_num_re*denom_im) /	    +
+    214					 denom_mod_sq
+    215	0000020D  DD 1D	000000E8r	     FSTP root1_im	  ; Сохранить мнимую часть корня 1
+    216
+    217					     ; --- Корень	2: аналогично	корню 1 ---
+    218					     ; Вещественная	часть:
+    219	00000213  DD 05	000000B8r	     FLD root2_num_re	  ; ST(0) = root2_num_re
+    220	00000219  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root2_num_re * denom_re
+    221	0000021F  DD 05	000000C0r	     FLD root2_num_im	  ; ST(0) = root2_num_im, ST(1)	= (root2_num_re	* denom_re)
+    222	00000225  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root2_num_im * denom_im
+    223	0000022B  DE C1			     FADD		  ; ST(0) = root2_num_re*denom_re + root2_num_im*denom_im
+    224	0000022D  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root2_num_re*denom_re + root2_num_im*denom_im) /	    +
+    225					 denom_mod_sq
+    226	00000233  DD 1D	000000F0r	     FSTP root2_re	  ; Сохранить вещественную	часть	    +
+    227					 корня 2
     228
-Turbo Assembler	 Version 5.0	    06-04-25 16:18:15	    Page 5
+Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 5
 lab3.asm
 
 
 
-    229					     call ExitProcess, 0
-1   230	0000025F  6A 00				 PUSH	 0
-1   231	00000261  E8 00000000e			 CALL	 ExitProcess
-    232					 END main
-Turbo Assembler	 Version 5.0	    06-04-25 16:18:15	    Page 6
+    229					     ; Мнимая часть:
+    230	00000239  DD 05	000000C0r	     FLD root2_num_im	  ; ST(0) = root2_num_im
+    231	0000023F  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root2_num_im * denom_re
+    232	00000245  DD 05	000000B8r	     FLD root2_num_re	  ; ST(0) = root2_num_re, ST(1)	= (root2_num_im	* denom_re)
+    233	0000024B  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root2_num_re * denom_im
+    234	00000251  DE E9			     FSUB		  ; ST(0) = root2_num_im*denom_re - root2_num_re*denom_im
+    235	00000253  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root2_num_im*denom_re - root2_num_re*denom_im) /	    +
+    236					 denom_mod_sq
+    237	00000259  DD 1D	000000F8r	     FSTP root2_im	  ; Сохранить мнимую часть корня 2
+    238
+    239					     ; Завершение программы
+    240					     call ExitProcess, 0  ; Выход из программы
+1   241	0000025F  6A 00				 PUSH	 0
+1   242	00000261  E8 00000000e			 CALL	 ExitProcess
+    243					 END main
+Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 6
 Symbol Table
 
 
@@ -265,7 +276,7 @@ Symbol Name			  Type	 Value
 
 ??date				  Text	 "06-04-25"
 ??filename			  Text	 "lab3	  "
-??time				  Text	 "16:18:15"
+??time				  Text	 "20:46:57"
 ??version			  Number 0500
 @32Bit				  Text	 1
 @CodeSize			  Text	 0
@@ -313,7 +324,7 @@ sqrt_mod			  Qword	 FLAT:0070
 sqrt_re				  Qword	 FLAT:0098
 theta				  Qword	 FLAT:0078
 theta_half			  Qword	 FLAT:0080
-Turbo Assembler	 Version 5.0	    06-04-25 16:18:15	    Page 7
+Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 7
 Symbol Table
 
 
