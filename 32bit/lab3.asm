@@ -1,294 +1,230 @@
+includelib import32.lib
+
 .386
 .model flat, stdcall
-option casemap :none
 
-includelib kernel32.lib
-includelib msvcrt.lib
-
-extern ExitProcess@4: PROC
-extern printf: PROC
-extern _getch: PROC
-
-; Макрос для вывода комплексного числа
-print_complex MACRO real_part, imag_part
-    pushad
-    fld real_part
-    fstp qword ptr [esp-8]
-    fld imag_part
-    fstp qword ptr [esp-16]
-    sub esp, 16
-    push offset fmt_complex
-    call printf
-    add esp, 20
-    popad
-ENDM
+extern ExitProcess: PROC
 
 .data
-    ; Форматы вывода
-    fmt_complex  db "%.4f %+.4fi", 0Ah, 0
-    fmt_root1    db "Root 1: ", 0
-    fmt_root2    db "Root 2: ", 0
-    fmt_pause    db "Press any key to exit...", 0
+    ; Коэффициенты (a, b, c) как комплексные числа
+    a_re dq 1.0
+    a_im dq 2.0
+    b_re dq 3.0
+    b_im dq -4.0
+    c_re dq 2.0
+    c_im dq 1.0
 
-    ; Комплексные коэффициенты квадратного уравнения
-    ; Пример: (1+0i)x² + (0+0i)x + (-1+0i) = 0 -> Корни: 1, -1
-    A_real dq  1.0   ; Действительная часть A
-    A_imag dq  0.0   ; Мнимая часть A
-    B_real dq  0.0   ; Действительная часть B
-    B_imag dq  0.0   ; Мнимая часть B
-    C_real dq -1.0   ; Действительная часть C
-    C_imag dq  0.0   ; Мнимая часть C
-
-    ; Промежуточные переменные
-    four      dq 4.0
-    two       dq 2.0
-    neg_one   dq -1.0
-
-    ; Результаты вычислений
-    D_real    dq ?   ; Действительная часть дискриминанта
-    D_imag    dq ?   ; Мнимая часть дискриминанта
-    sqrtD_real dq ?  ; Действительная часть sqrt(D)
-    sqrtD_imag dq ?  ; Мнимая часть sqrt(D)
-    root1_real dq ?  ; Действительная часть корня 1
-    root1_imag dq ?  ; Мнимая часть корня 1
-    root2_real dq ?  ; Действительная часть корня 2
-    root2_imag dq ?  ; Мнимая часть корня 2
+    ; Переменные для промежуточных вычислений
+    b_sq_re dq ?
+    b_sq_im dq ?
+    ac_re   dq ?
+    ac_im   dq ?
+    four_ac_re dq ?
+    four_ac_im dq ?
+    D_re    dq ?
+    D_im    dq ?
+    sqrt_mod dq ?
+    theta    dq ?
+    theta_half dq ?
+    cos_half dq ?
+    sin_half dq ?
+    sqrt_re dq ?
+    sqrt_im dq ?
+    root1_num_re dq ?
+    root1_num_im dq ?
+    root2_num_re dq ?
+    root2_num_im dq ?
+    denom_re dq ?
+    denom_im dq ?
+    denom_mod_sq dq ?
+    root1_re dq ?
+    root1_im dq ?
+    root2_re dq ?
+    root2_im dq ?
 
 .code
-main PROC
-    ; Инициализация FPU
-    finit
+main:
+    FINIT
 
-    ; Вычисление дискриминанта D = B² - 4AC
-    ; Шаг 1: Вычисление B²
-    call calc_B_square   ; Результат: D_real, D_imag (пока содержит B²)
+    ; Вычисление дискриминанта D = b² - 4ac
 
-    ; Шаг 2: Вычисление 4AC
-    call calc_4AC        ; Результат: root1_real, root1_imag (временное хранение)
+    ; b² = (b_re^2 - b_im^2) + 2*b_re*b_im*i
+    FLD b_re
+    FMUL ST(0), ST(0)
+    FLD b_im
+    FMUL ST(0), ST(0)
+    FSUB
+    FSTP b_sq_re
 
-    ; Шаг 3: D = B² - 4AC
-    fld D_real
-    fsub root1_real
-    fstp D_real          ; D_real = B²_real - 4AC_real
+    FLD b_re
+    FLD b_im
+    FMUL
+    FADD ST(0), ST(0)
+    FSTP b_sq_im
 
-    fld D_imag
-    fsub root1_imag
-    fstp D_imag          ; D_imag = B²_imag - 4AC_imag
+    ; a*c = (a_re*c_re - a_im*c_im) + (a_re*c_im + a_im*c_re)*i
+    FLD a_re
+    FMUL c_re
+    FLD a_im
+    FMUL c_im
+    FSUB
+    FSTP ac_re
 
-    ; Вычисление квадратного корня из дискриминанта
-    movsd xmm0, D_real
-    movsd xmm1, D_imag
-    call complex_sqrt    ; Результат: xmm0 = sqrtD_real, xmm1 = sqrtD_imag
-    movsd sqrtD_real, xmm0
-    movsd sqrtD_imag, xmm1
+    FLD a_re
+    FMUL c_im
+    FLD a_im
+    FMUL c_re
+    FADD
+    FSTP ac_im
 
-    ; Вычисление корней уравнения:
-    ; root1 = (-B + sqrt(D)) / (2A)
-    ; root2 = (-B - sqrt(D)) / (2A)
+    ; 4ac
+    FLD ac_re
+    FADD ST(0), ST(0)
+    FADD ST(0), ST(0)
+    FSTP four_ac_re
 
-    ; Вычисление -B
-    fld B_real
-    fchs
-    fstp root1_real      ; -B_real
-    fld B_imag
-    fchs
-    fstp root1_imag      ; -B_imag
+    FLD ac_im
+    FADD ST(0), ST(0)
+    FADD ST(0), ST(0)
+    FSTP four_ac_im
 
-    ; Вычисление (-B + sqrt(D))
-    fld root1_real
-    fadd sqrtD_real
-    fstp root1_real      ; numerator1_real = -B_real + sqrtD_real
-    fld root1_imag
-    fadd sqrtD_imag
-    fstp root1_imag      ; numerator1_imag = -B_imag + sqrtD_imag
+    ; D = b² - 4ac
+    FLD b_sq_re
+    FLD four_ac_re
+    FSUB
+    FSTP D_re
 
-    ; Делим на 2A
-    movsd xmm0, root1_real
-    movsd xmm1, root1_imag
-    movsd xmm2, A_real
-    movsd xmm3, A_imag
-    movsd xmm4, two
-    call complex_div      ; Результат: xmm0 = root1_real, xmm1 = root1_imag
-    movsd root1_real, xmm0
-    movsd root1_imag, xmm1
+    FLD b_sq_im
+    FLD four_ac_im
+    FSUB
+    FSTP D_im
 
-    ; Вычисление (-B - sqrt(D))
-    fld root1_real       ; Временно сохраняем -B_real
-    fsub sqrtD_real
-    fstp root2_real      ; numerator2_real = -B_real - sqrtD_real
-    fld root1_imag       ; Временно сохраняем -B_imag
-    fsub sqrtD_imag
-    fstp root2_imag      ; numerator2_imag = -B_imag - sqrtD_imag
+    ; Вычисление sqrt(D) через полярные координаты
+    ; Модуль D
+    FLD D_re
+    FMUL ST(0), ST(0)
+    FLD D_im
+    FMUL ST(0), ST(0)
+    FADD
+    FSQRT
+    FSQRT
+    FSTP sqrt_mod
 
-    ; Делим на 2A
-    movsd xmm0, root2_real
-    movsd xmm1, root2_imag
-    movsd xmm2, A_real
-    movsd xmm3, A_imag
-    movsd xmm4, two
-    call complex_div      ; Результат: xmm0 = root2_real, xmm1 = root2_imag
-    movsd root2_real, xmm0
-    movsd root2_imag, xmm1
+    ; Угол θ = arctan2(D_im, D_re)
+    FLD D_re
+    FLD D_im
+    FPATAN
+    FSTP theta
 
-    ; Вывод результатов
-    push offset fmt_root1
-    call printf
-    add esp, 4
-    print_complex root1_real, root1_imag
+    ; θ/2
+    FLD theta
+    FLD1
+    FADD ST(0), ST(0)
+    FDIV
+    FSTP theta_half
 
-    push offset fmt_root2
-    call printf
-    add esp, 4
-    print_complex root2_real, root2_imag
+    ; cos(theta/2) и sin(theta/2)
+    FLD theta_half
+    FCOS
+    FSTP cos_half
 
-    ; Ожидание нажатия клавиши
-    push offset fmt_pause
-    call printf
-    add esp, 4
-    call _getch
+    FLD theta_half
+    FSIN
+    FSTP sin_half
 
-    ; Завершение программы
-    push 0
-    call ExitProcess@4
+    ; sqrt(D) = sqrt_mod*(cos(theta/2) + i*sin(theta/2))
+    FLD sqrt_mod
+    FMUL cos_half
+    FSTP sqrt_re
 
-main ENDP
+    FLD sqrt_mod
+    FMUL sin_half
+    FSTP sqrt_im
 
-; Вычисление B²
-calc_B_square PROC
-    ; Действительная часть: B_real² - B_imag²
-    fld B_real
-    fmul B_real
-    fld B_imag
-    fmul B_imag
-    fsub
-    fstp D_real
+    ; Вычисление корней: (-b ± sqrt(D)) / (2a)
 
-    ; Мнимая часть: 2 * B_real * B_imag
-    fld B_real
-    fmul B_imag
-    fadd st, st
-    fstp D_imag
-    ret
-calc_B_square ENDP
+    ; Числитель для root1: -b + sqrt(D)
+    FLD sqrt_re
+    FLD b_re
+    FCHS
+    FADD
+    FSTP root1_num_re
 
-; Вычисление 4AC
-calc_4AC PROC
-    ; Умножение A на C
-    ; Действительная часть: A_real*C_real - A_imag*C_imag
-    fld A_real
-    fmul C_real
-    fld A_imag
-    fmul C_imag
-    fsub
-    fstp root1_real   ; временное хранение (A*C)_real
+    FLD sqrt_im
+    FLD b_im
+    FCHS
+    FADD
+    FSTP root1_num_im
 
-    ; Мнимая часть: A_real*C_imag + A_imag*C_real
-    fld A_real
-    fmul C_imag
-    fld A_imag
-    fmul C_real
-    fadd
-    fstp root1_imag   ; (A*C)_imag
+    ; Числитель для root2: -b - sqrt(D)
+    FLD sqrt_re
+    FLD b_re
+    FCHS
+    FSUB
+    FSTP root2_num_re
 
-    ; Умножение на 4
-    fld four
-    fmul root1_real
-    fstp root1_real   ; 4*(A*C)_real
+    FLD sqrt_im
+    FLD b_im
+    FCHS
+    FSUB
+    FSTP root2_num_im
 
-    fld four
-    fmul root1_imag
-    fstp root1_imag   ; 4*(A*C)_imag
-    ret
-calc_4AC ENDP
+    ; Знаменатель: 2a
+    FLD a_re
+    FADD ST(0), ST(0)
+    FSTP denom_re
 
-; Вычисление квадратного корня комплексного числа
-; Вход: xmm0 = real, xmm1 = imag
-; Выход: xmm0 = sqrt_real, xmm1 = sqrt_imag
-complex_sqrt PROC
-    ; Сохранение в стеке
-    sub esp, 16
-    movsd [esp], xmm0
-    movsd [esp+8], xmm1
+    FLD a_im
+    FADD ST(0), ST(0)
+    FSTP denom_im
 
-    ; Вычисление модуля r = sqrt(real² + imag²)
-    fld qword ptr [esp]      ; real
-    fmul st, st
-    fld qword ptr [esp+8]    ; imag
-    fmul st, st
-    fadd                     ; real² + imag²
-    fsqrt                    ; r = sqrt(real² + imag²)
-    fst qword ptr [esp]      ; сохраняем r (временно)
+    ; Модуль знаменателя в квадрате
+    FLD denom_re
+    FMUL ST(0), ST(0)
+    FLD denom_im
+    FMUL ST(0), ST(0)
+    FADD
+    FSTP denom_mod_sq
 
-    ; Вычисление действительной части корня
-    ; x = sqrt((r + real) / 2)
-    fld qword ptr [esp]      ; r
-    fadd qword ptr [esp]     ; r + real (оригинальный real сохранен в [esp+0]?)
-    fdiv two
-    fsqrt
-    fstp qword ptr [esp+8]   ; сохраняем x (временное хранение)
+    ; Корень 1: (num_re + num_im*i) / denom
+    ; Действительная часть
+    FLD root1_num_re
+    FMUL denom_re
+    FLD root1_num_im
+    FMUL denom_im
+    FADD
+    FDIV denom_mod_sq
+    FSTP root1_re
 
-    ; Вычисление мнимой части корня
-    ; y = sqrt((r - real) / 2) * sign(imag)
-    fld qword ptr [esp]      ; r
-    fsub qword ptr [esp]     ; r - real (оригинальный real)
-    fdiv two
-    fsqrt                    ; y_temp
-    ; Учет знака мнимой части
-    fld qword ptr [esp+8]    ; оригинальный imag
-    ftst
-    fstsw ax
-    sahf
-    jae positive
-    fchs                     ; если imag < 0, меняем знак y
-positive:
-    fstp qword ptr [esp]     ; сохраняем y
+    ; Мнимая часть
+    FLD root1_num_im
+    FMUL denom_re
+    FLD root1_num_re
+    FMUL denom_im
+    FSUB
+    FDIV denom_mod_sq
+    FSTP root1_im
 
-    ; Загрузка результатов
-    movsd xmm0, [esp+8]      ; x (действительная часть)
-    movsd xmm1, [esp]        ; y (мнимая часть)
+    ; Корень 2
+    ; Действительная часть
+    FLD root2_num_re
+    FMUL denom_re
+    FLD root2_num_im
+    FMUL denom_im
+    FADD
+    FDIV denom_mod_sq
+    FSTP root2_re
 
-    add esp, 16
-    ret
-complex_sqrt ENDP
+    ; Мнимая часть
+    FLD root2_num_im
+    FMUL denom_re
+    FLD root2_num_re
+    FMUL denom_im
+    FSUB
+    FDIV denom_mod_sq
+    FSTP root2_im
 
-; Деление комплексного числа на комплексное
-; Вход: 
-;   xmm0, xmm1 = num_real, num_imag
-;   xmm2, xmm3 = den_real, den_imag
-;   xmm4 = scalar (скаляр для деления)
-; Выход: xmm0, xmm1 = res_real, res_imag
-complex_div PROC
-    ; Вычисление знаменателя: den_real² + den_imag²
-    movsd xmm5, xmm2
-    mulsd xmm5, xmm5
-    movsd xmm6, xmm3
-    mulsd xmm6, xmm6
-    addsd xmm5, xmm6   ; denom = den_real² + den_imag²
+    ; Результаты сохранены в root1_re, root1_im, root2_re, root2_im
 
-    ; Умножаем знаменатель на скаляр
-    mulsd xmm5, xmm4   ; denom_scaled = denom * scalar
-
-    ; Вычисление действительной части результата:
-    ; (num_real*den_real + num_imag*den_imag) / denom_scaled
-    movsd xmm6, xmm0   ; num_real
-    mulsd xmm6, xmm2   ; num_real * den_real
-    movsd xmm7, xmm1   ; num_imag
-    mulsd xmm7, xmm3   ; num_imag * den_imag
-    addsd xmm6, xmm7   ; real_numerator
-    divsd xmm6, xmm5   ; res_real = real_numerator / denom_scaled
-
-    ; Вычисление мнимой части результата:
-    ; (num_imag*den_real - num_real*den_imag) / denom_scaled
-    movsd xmm7, xmm1   ; num_imag
-    mulsd xmm7, xmm2   ; num_imag * den_real
-    mulsd xmm0, xmm3   ; num_real * den_imag
-    subsd xmm7, xmm0   ; imag_numerator
-    divsd xmm7, xmm5   ; res_imag = imag_numerator / denom_scaled
-
-    ; Возврат результатов
-    movsd xmm0, xmm6   ; res_real
-    movsd xmm1, xmm7   ; res_imag
-    ret
-complex_div ENDP
-
+    call ExitProcess, 0
 END main

@@ -1,0 +1,82 @@
+Turbo Assembler	 Version 5.0	    05-19-25 07:03:20	    Page 1
+sin.asm
+
+
+
+      1					 includelib import32.lib
+      2
+      3					 .386
+      4	00000000			 .model	flat, stdcall
+      5
+      6					 extern	ExitProcess: PROC
+      7
+      8	00000000			 .data
+      9	00000000  3FF0000000000000	     y	     dq	1.0	  ; Начальное значение	x
+     10	00000008  3F1A36E2EB1C432C	     eps     dq	1e-4	  ; Порог
+     11	00000010  ????????????????	     z	     dq	?	  ; Результат
+     12	00000018  ????????		     count   dd	?	  ; Счётчик итераций
+     13
+     14	0000001C			 .code
+     15	00000000			 main:
+     16	00000000  9B DB	E3		     FINIT		  ; Инициализация FPU
+     17	00000003  DD 05	00000008r	     FLD eps		  ; ST(0) = eps
+     18	00000009  DD 05	00000000r	     FLD y		  ; ST(0) = y, ST(1) = eps
+     19	0000000F  B9 00000000		     mov ecx, 0		  ; Инициализация счётчика
+     20
+     21	00000014			 loop_start:
+     22	00000014  D9 FE			     FSIN		  ; ST(0) = sin(ST(0))
+     23	00000016  41			     inc ecx		  ; Увеличить счётчик
+     24	00000017  D9 C0			     FLD ST(0)		  ; Дублировать ST(0)
+     25	00000019  D9 E1			     FABS		  ; ST(0) = |ST(0)|
+     26	0000001B  D8 DA			     FCOMP ST(2)	  ; Сравнить с	eps (ST(2))
+     27	0000001D  9B DF	E0		     FSTSW AX		  ; Сохранить статус FPU
+     28	00000020  9E			     SAHF		  ; Загрузить флаги
+     29	00000021  DD D8			     FSTP ST(0)		  ; Очистить лишнее значение (|y|)
+     30	00000023  73 EF			     JAE loop_start	  ; Если |y| >= eps, повторить
+     31
+     32	00000025  DD 1D	00000010r	     FSTP z		  ; Сохранить результат (sin^{(n)}(x))
+     33	0000002B  89 0D	00000018r	     mov [count], ecx	  ; Сохранить число итераций
+     34
+     35					     call ExitProcess, 0
+1    36	00000031  6A 00				 PUSH	 0
+1    37	00000033  E8 00000000e			 CALL	 ExitProcess
+     38					 END main
+Turbo Assembler	 Version 5.0	    05-19-25 07:03:20	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??date				  Text	 "05-19-25"
+??filename			  Text	 "sin	  "
+??time				  Text	 "07:03:20"
+??version			  Number 0500
+@32Bit				  Text	 1
+@CodeSize			  Text	 0
+@Cpu				  Text	 0F0FH
+@DataSize			  Text	 0
+@FileName			  Text	 sin
+@Interface			  Text	 003h
+@Model				  Text	 1
+@WordSize			  Text	 4
+@code				  Text	 FLAT
+@curseg				  Text	 _TEXT
+@data				  Text	 FLAT
+@stack				  Text	 FLAT
+ExitProcess			  Near32 ----:---- Extern
+count				  Dword	 FLAT:0018
+eps				  Qword	 FLAT:0008
+loop_start			  Near32 FLAT:0014
+main				  Near32 FLAT:0000
+y				  Qword	 FLAT:0000
+z				  Qword	 FLAT:0010
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  _DATA				  32  001C Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  0038 Dword  Public  CODE
+
