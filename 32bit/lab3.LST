@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 1
+Turbo Assembler	 Version 5.0	    06-05-25 09:11:44	    Page 1
 lab3.asm
 
 
@@ -60,7 +60,7 @@ lab3.asm
      55	0000000B  DD 05	00000018r	     FLD b_im		  ; ST(0) = b_im, ST(1)	= b_re²
      56	00000011  D8 C8			     FMUL ST(0), ST(0)	  ; ST(0) = b_im²
      57	00000013  DE E9			     FSUB		  ; ST(0) = b_re² - b_im² (вещественная часть b²)
-Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 2
+Turbo Assembler	 Version 5.0	    06-05-25 09:11:44	    Page 2
 lab3.asm
 
 
@@ -122,16 +122,16 @@ lab3.asm
     112	000000CB  D9 FA			     FSQRT		  ; ST(0) = sqrt(D_re²	+ D_im²) (модуль	D)
     113	000000CD  D9 FA			     FSQRT		  ; ST(0) = sqrt(модуля) (т.к. sqrt(D) = sqrt(|D|))
     114	000000CF  DD 1D	00000070r	     FSTP sqrt_mod	  ; Сохранить модуль корня
-Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 3
+Turbo Assembler	 Version 5.0	    06-05-25 09:11:44	    Page 3
 lab3.asm
 
 
 
     115
     116					     ; --- Угол θ = arctan2(D_im, D_re) ---
-    117	000000D5  DD 05	00000060r	     FLD D_re		  ; ST(0) = D_re
-    118	000000DB  DD 05	00000068r	     FLD D_im		  ; ST(0) = D_im, ST(1)	= D_re
-    119	000000E1  D9 F3			     FPATAN		  ; ST(0) = arctan(D_im/D_re) (угол	θ)
+    117	000000D5  DD 05	00000068r	     FLD D_im		  ; ST(0) = D_im
+    118	000000DB  DD 05	00000060r	     FLD D_re		  ; ST(0) = D_re, ST(1)	= D_im
+    119	000000E1  D9 F3			     FPATAN		  ; Теперь правильно: arctan2(D_im, D_re)
     120	000000E3  DD 1D	00000078r	     FSTP theta		  ; Сохранить θ
     121
     122					     ; --- θ/2	---
@@ -184,7 +184,7 @@ lab3.asm
     169
     170	0000017D  DD 05	000000A0r	     FLD sqrt_im	  ; ST(0) = sqrt_im
     171	00000183  DD 05	00000018r	     FLD b_im		  ; ST(0) = b_im, ST(1)	= sqrt_im
-Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 4
+Turbo Assembler	 Version 5.0	    06-05-25 09:11:44	    Page 4
 lab3.asm
 
 
@@ -221,52 +221,52 @@ lab3.asm
     201	000001DF  DE C1			     FADD		  ; ST(0) = root1_num_re*denom_re + root1_num_im*denom_im
     202	000001E1  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root1_num_re*denom_re + root1_num_im*denom_im) /	    +
     203					 denom_mod_sq
-    204	000001E7  DD 1D	000000E0r	     FSTP root1_re	  ; Сохранить вещественную	часть	    +
+    204					     ; FSTP root1_re	    ; Сохранить вещественную часть	    +
     205					 корня 1
     206
     207					     ; Мнимая часть:
-    208	000001ED  DD 05	000000B0r	     FLD root1_num_im	  ; ST(0) = root1_num_im
-    209	000001F3  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root1_num_im * denom_re
-    210	000001F9  DD 05	000000A8r	     FLD root1_num_re	  ; ST(0) = root1_num_re, ST(1)	= (root1_num_im	* denom_re)
-    211	000001FF  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root1_num_re * denom_im
-    212	00000205  DE E9			     FSUB		  ; ST(0) = root1_num_im*denom_re - root1_num_re*denom_im
-    213	00000207  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root1_num_im*denom_re - root1_num_re*denom_im) /	    +
+    208	000001E7  DD 05	000000B0r	     FLD root1_num_im	  ; ST(0) = root1_num_im
+    209	000001ED  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root1_num_im * denom_re
+    210	000001F3  DD 05	000000A8r	     FLD root1_num_re	  ; ST(0) = root1_num_re, ST(1)	= (root1_num_im	* denom_re)
+    211	000001F9  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root1_num_re * denom_im
+    212	000001FF  DE E9			     FSUB		  ; ST(0) = root1_num_im*denom_re - root1_num_re*denom_im
+    213	00000201  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root1_num_im*denom_re - root1_num_re*denom_im) /	    +
     214					 denom_mod_sq
-    215	0000020D  DD 1D	000000E8r	     FSTP root1_im	  ; Сохранить мнимую часть корня 1
+    215					     ; FSTP root1_im	    ; Сохранить мнимую часть корня 1
     216
     217					     ; --- Корень	2: аналогично	корню 1 ---
     218					     ; Вещественная	часть:
-    219	00000213  DD 05	000000B8r	     FLD root2_num_re	  ; ST(0) = root2_num_re
-    220	00000219  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root2_num_re * denom_re
-    221	0000021F  DD 05	000000C0r	     FLD root2_num_im	  ; ST(0) = root2_num_im, ST(1)	= (root2_num_re	* denom_re)
-    222	00000225  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root2_num_im * denom_im
-    223	0000022B  DE C1			     FADD		  ; ST(0) = root2_num_re*denom_re + root2_num_im*denom_im
-    224	0000022D  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root2_num_re*denom_re + root2_num_im*denom_im) /	    +
+    219	00000207  DD 05	000000B8r	     FLD root2_num_re	  ; ST(0) = root2_num_re
+    220	0000020D  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root2_num_re * denom_re
+    221	00000213  DD 05	000000C0r	     FLD root2_num_im	  ; ST(0) = root2_num_im, ST(1)	= (root2_num_re	* denom_re)
+    222	00000219  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root2_num_im * denom_im
+    223	0000021F  DE C1			     FADD		  ; ST(0) = root2_num_re*denom_re + root2_num_im*denom_im
+    224	00000221  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root2_num_re*denom_re + root2_num_im*denom_im) /	    +
     225					 denom_mod_sq
-    226	00000233  DD 1D	000000F0r	     FSTP root2_re	  ; Сохранить вещественную	часть	    +
+    226					     ; FSTP root2_re	    ; Сохранить вещественную часть	    +
     227					 корня 2
     228
-Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 5
+Turbo Assembler	 Version 5.0	    06-05-25 09:11:44	    Page 5
 lab3.asm
 
 
 
     229					     ; Мнимая часть:
-    230	00000239  DD 05	000000C0r	     FLD root2_num_im	  ; ST(0) = root2_num_im
-    231	0000023F  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root2_num_im * denom_re
-    232	00000245  DD 05	000000B8r	     FLD root2_num_re	  ; ST(0) = root2_num_re, ST(1)	= (root2_num_im	* denom_re)
-    233	0000024B  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root2_num_re * denom_im
-    234	00000251  DE E9			     FSUB		  ; ST(0) = root2_num_im*denom_re - root2_num_re*denom_im
-    235	00000253  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root2_num_im*denom_re - root2_num_re*denom_im) /	    +
+    230	00000227  DD 05	000000C0r	     FLD root2_num_im	  ; ST(0) = root2_num_im
+    231	0000022D  DC 0D	000000C8r	     FMUL denom_re	  ; ST(0) = root2_num_im * denom_re
+    232	00000233  DD 05	000000B8r	     FLD root2_num_re	  ; ST(0) = root2_num_re, ST(1)	= (root2_num_im	* denom_re)
+    233	00000239  DC 0D	000000D0r	     FMUL denom_im	  ; ST(0) = root2_num_re * denom_im
+    234	0000023F  DE E9			     FSUB		  ; ST(0) = root2_num_im*denom_re - root2_num_re*denom_im
+    235	00000241  DC 35	000000D8r	     FDIV denom_mod_sq	  ; ST(0) = (root2_num_im*denom_re - root2_num_re*denom_im) /	    +
     236					 denom_mod_sq
-    237	00000259  DD 1D	000000F8r	     FSTP root2_im	  ; Сохранить мнимую часть корня 2
+    237					     ; FSTP root2_im	    ; Сохранить мнимую часть корня 2
     238
     239					     ; Завершение программы
     240					     call ExitProcess, 0  ; Выход из программы
-1   241	0000025F  6A 00				 PUSH	 0
-1   242	00000261  E8 00000000e			 CALL	 ExitProcess
+1   241	00000247  6A 00				 PUSH	 0
+1   242	00000249  E8 00000000e			 CALL	 ExitProcess
     243					 END main
-Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 6
+Turbo Assembler	 Version 5.0	    06-05-25 09:11:44	    Page 6
 Symbol Table
 
 
@@ -274,9 +274,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??date				  Text	 "06-04-25"
+??date				  Text	 "06-05-25"
 ??filename			  Text	 "lab3	  "
-??time				  Text	 "20:46:57"
+??time				  Text	 "09:11:44"
 ??version			  Number 0500
 @32Bit				  Text	 1
 @CodeSize			  Text	 0
@@ -324,7 +324,7 @@ sqrt_mod			  Qword	 FLAT:0070
 sqrt_re				  Qword	 FLAT:0098
 theta				  Qword	 FLAT:0078
 theta_half			  Qword	 FLAT:0080
-Turbo Assembler	 Version 5.0	    06-04-25 20:46:57	    Page 7
+Turbo Assembler	 Version 5.0	    06-05-25 09:11:44	    Page 7
 Symbol Table
 
 
@@ -335,5 +335,5 @@ Groups & Segments		  Bit Size Align  Combine Class
 DGROUP				  Group
   _DATA				  32  0100 Dword  Public  DATA
 FLAT				  Group
-_TEXT				  32  0266 Dword  Public  CODE
+_TEXT				  32  024E Dword  Public  CODE
 

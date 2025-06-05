@@ -112,9 +112,9 @@ main:
     FSTP sqrt_mod        ; Сохранить модуль корня
 
     ; --- Угол θ = arctan2(D_im, D_re) ---
-    FLD D_re             ; ST(0) = D_re
-    FLD D_im             ; ST(0) = D_im, ST(1) = D_re
-    FPATAN               ; ST(0) = arctan(D_im/D_re) (угол θ)
+    FLD D_im             ; ST(0) = D_im
+    FLD D_re             ; ST(0) = D_re, ST(1) = D_im
+    FPATAN               ; Теперь правильно: arctan2(D_im, D_re)
     FSTP theta           ; Сохранить θ
 
     ; --- θ/2 ---
@@ -194,7 +194,7 @@ main:
     FMUL denom_im        ; ST(0) = root1_num_im * denom_im
     FADD                 ; ST(0) = root1_num_re*denom_re + root1_num_im*denom_im
     FDIV denom_mod_sq    ; ST(0) = (root1_num_re*denom_re + root1_num_im*denom_im) / denom_mod_sq
-    FSTP root1_re        ; Сохранить вещественную часть корня 1
+    ; FSTP root1_re        ; Сохранить вещественную часть корня 1
 
     ; Мнимая часть:
     FLD root1_num_im     ; ST(0) = root1_num_im
@@ -203,7 +203,7 @@ main:
     FMUL denom_im        ; ST(0) = root1_num_re * denom_im
     FSUB                 ; ST(0) = root1_num_im*denom_re - root1_num_re*denom_im
     FDIV denom_mod_sq    ; ST(0) = (root1_num_im*denom_re - root1_num_re*denom_im) / denom_mod_sq
-    FSTP root1_im        ; Сохранить мнимую часть корня 1
+    ; FSTP root1_im        ; Сохранить мнимую часть корня 1
 
     ; --- Корень 2: аналогично корню 1 ---
     ; Вещественная часть:
@@ -213,7 +213,7 @@ main:
     FMUL denom_im        ; ST(0) = root2_num_im * denom_im
     FADD                 ; ST(0) = root2_num_re*denom_re + root2_num_im*denom_im
     FDIV denom_mod_sq    ; ST(0) = (root2_num_re*denom_re + root2_num_im*denom_im) / denom_mod_sq
-    FSTP root2_re        ; Сохранить вещественную часть корня 2
+    ; FSTP root2_re        ; Сохранить вещественную часть корня 2
 
     ; Мнимая часть:
     FLD root2_num_im     ; ST(0) = root2_num_im
@@ -222,7 +222,7 @@ main:
     FMUL denom_im        ; ST(0) = root2_num_re * denom_im
     FSUB                 ; ST(0) = root2_num_im*denom_re - root2_num_re*denom_im
     FDIV denom_mod_sq    ; ST(0) = (root2_num_im*denom_re - root2_num_re*denom_im) / denom_mod_sq
-    FSTP root2_im        ; Сохранить мнимую часть корня 2
+    ; FSTP root2_im        ; Сохранить мнимую часть корня 2
 
     ; Завершение программы
     call ExitProcess, 0  ; Выход из программы
