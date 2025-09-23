@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 5.0	    09-15-25 10:42:25	    Page 1
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:38	    Page 1
 lab4_n.asm
 
 
@@ -47,7 +47,7 @@ lab4_n.asm
      42	0000003C			 main endp
      43
      44					 end main
-Turbo Assembler	 Version 5.0	    09-15-25 10:42:25	    Page 2
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:38	    Page 2
 Symbol Table
 
 
@@ -55,9 +55,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??date				  Text	 "09-15-25"
+??date				  Text	 "09-23-25"
 ??filename			  Text	 "lab4_n  "
-??time				  Text	 "10:42:25"
+??time				  Text	 "19:03:38"
 ??version			  Number 0500
 @32Bit				  Text	 1
 @CodeSize			  Text	 0

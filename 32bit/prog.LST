@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 1
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:24	    Page 1
 prog.asm
 
 
@@ -60,7 +60,7 @@ prog.asm
      55					     ; Копируем	первое слово
      56	0000003C  8B 75	14		     mov esi, [ebp+20]	; ESI =	words_buffer
      57	0000003F  8B 36			     mov esi, [esi]	; ESI =	адрес первого слова
-Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 2
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:24	    Page 2
 prog.asm
 
 
@@ -122,7 +122,7 @@ prog.asm
     112	0000009B  33 D2			     xor edx, edx	; Количество слов
     113	0000009D  B4 00			     mov ah, 0		; Флаг внутри	слова
     114	0000009F			 count_loop:
-Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 3
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:24	    Page 3
 prog.asm
 
 
@@ -184,7 +184,7 @@ prog.asm
     169	0000010E  3B C2			     cmp eax, edx	; Сравниваем с q
     170	00000110  73 05	90 90 90 90	     jae no_extra
     171	00000116  41			     inc ecx		; Добавляем дополнительный пробел
-Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 4
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:24	    Page 4
 prog.asm
 
 
@@ -246,7 +246,7 @@ prog.asm
     226	0000016E  8A 06			     mov al, [esi]
     227	00000170  88 07			     mov [edi],	al
     228	00000172  46			     inc esi
-Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 5
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:24	    Page 5
 prog.asm
 
 
@@ -263,7 +263,7 @@ prog.asm
     238	0000017D			 InsBlanks endp
     239
     240					 end
-Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 6
+Turbo Assembler	 Version 5.0	    09-23-25 19:03:24	    Page 6
 Symbol Table
 
 
@@ -271,9 +271,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??date				  Text	 "09-15-25"
+??date				  Text	 "09-23-25"
 ??filename			  Text	 "prog	  "
-??time				  Text	 "10:33:23"
+??time				  Text	 "19:03:24"
 ??version			  Number 0500
 @32Bit				  Text	 1
 @CodeSize			  Text	 0
