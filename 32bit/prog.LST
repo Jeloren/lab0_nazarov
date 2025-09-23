@@ -1,0 +1,328 @@
+Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 1
+prog.asm
+
+
+
+      1					 .386
+      2	00000000			 .model	flat, stdcall
+      3					 public	InsBlanks
+      4
+      5	00000000			 .code
+      6	00000000			 InsBlanks proc
+      7	00000000  55			     push ebp
+      8	00000001  8B EC			     mov ebp, esp
+      9	00000003  60			     pushad
+     10
+     11					     ; Загрузка	параметров:
+     12					     ; [ebp+8]	= input_string
+     13					     ; [ebp+12]	= k
+     14					     ; [ebp+16]	= result_buffer
+     15					     ; [ebp+20]	= words_buffer
+     16					     ; [ebp+24]	= temp_buffer
+     17
+     18					     ; 1. Разбиваем строку на слова
+     19	00000004  8B 75	08		     mov esi, [ebp+8]	; ESI =	input_string
+     20	00000007  8B 7D	14		     mov edi, [ebp+20]	; EDI =	words_buffer
+     21	0000000A  33 C9			     xor ecx, ecx	; ECX =	счётчик слов
+     22
+     23	0000000C			 skip_spaces:
+     24	0000000C  AC			     lodsb		; Читаем символ
+     25	0000000D  3C 00			     cmp al, 0		; Конец строки?
+     26	0000000F  74 23	90 90 90 90	     je	split_end
+     27	00000015  3C 20			     cmp al, ' '	; Пропускаем пробелы
+     28	00000017  74 F3			     je	skip_spaces
+     29
+     30					     ; Начало слова
+     31	00000019  4E			     dec esi		; Возвращаемся к первому символу
+     32	0000001A  89 37			     mov [edi],	esi	; Сохраняем указатель
+     33	0000001C  83 C7	04		     add edi, 4		; Следующий элемент массива (4 байта)
+     34	0000001F  41			     inc ecx		; Увеличиваем счётчик	слов
+     35
+     36	00000020			 read_word:
+     37	00000020  AC			     lodsb		; Читаем символ
+     38	00000021  3C 00			     cmp al, 0		; Конец строки?
+     39	00000023  74 0E	90 90 90 90	     je	word_end
+     40	00000029  3C 20			     cmp al, ' '	; Конец слова?
+     41	0000002B  75 F3			     jne read_word
+     42	0000002D  C6 46	FF 00		     mov byte ptr [esi-1], 0 ; Заменяем	пробел на 0
+     43	00000031  EB D9			     jmp skip_spaces
+     44
+     45	00000033			 word_end:
+     46	00000033  4E			     dec esi		; Корректируем указатель
+     47	00000034			 split_end:
+     48	00000034  51			     push ecx		; Сохраняем количество слов
+     49
+     50					     ; 2. Собираем нормализованную строку
+     51	00000035  8B 7D	18		     mov edi, [ebp+24]	; EDI =	temp_buffer
+     52	00000038  59			     pop ecx		; Восстанавливаем ECX (количество слов)
+     53	00000039  67| E3 48		     jcxz empty_temp	; Если слов нет
+     54
+     55					     ; Копируем	первое слово
+     56	0000003C  8B 75	14		     mov esi, [ebp+20]	; ESI =	words_buffer
+     57	0000003F  8B 36			     mov esi, [esi]	; ESI =	адрес первого слова
+Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 2
+prog.asm
+
+
+
+     58	00000041			 copy_first:
+     59	00000041  8A 06			     mov al, [esi]
+     60	00000043  84 C0			     test al, al	; Конец слова?
+     61	00000045  74 0A	90 90 90 90	     jz	first_done
+     62	0000004B  88 07			     mov [edi],	al	; Копируем символ
+     63	0000004D  47			     inc edi
+     64	0000004E  46			     inc esi
+     65	0000004F  EB F0			     jmp copy_first
+     66
+     67	00000051			 first_done:
+     68	00000051  51			     push ecx		; Сохраняем количество слов
+     69	00000052  59			     pop ecx		; Восстанавливаем ECX
+     70	00000053  49			     dec ecx		; Оставшиеся слова
+     71	00000054  74 26	90 90 90 90	     jz	temp_done	; Если только	одно слово
+     72
+     73	0000005A  8B 75	14		     mov esi, [ebp+20]	; ESI =	words_buffer
+     74	0000005D  83 C6	04		     add esi, 4		; Переходим ко второму слову (4 байта)
+     75	00000060			 next_temp_word:
+     76	00000060  B0 20			     mov al, ' '	; Добавляем пробел
+     77	00000062  88 07			     mov [edi],	al
+     78	00000064  47			     inc edi
+     79	00000065  8B 1E			     mov ebx, [esi]	; EBX =	адрес слова
+     80	00000067  83 C6	04		     add esi, 4		; Следующее слово	(4 байта)
+     81	0000006A			 copy_word_temp:
+     82	0000006A  8A 03			     mov al, [ebx]
+     83	0000006C  84 C0			     test al, al	; Конец слова?
+     84	0000006E  74 0A	90 90 90 90	     jz	word_done_temp
+     85	00000074  88 07			     mov [edi],	al	; Копируем символ
+     86	00000076  47			     inc edi
+     87	00000077  43			     inc ebx
+     88	00000078  EB F0			     jmp copy_word_temp
+     89
+     90	0000007A			 word_done_temp:
+     91	0000007A  E2 E4			     loop next_temp_word ; Повторяем для всех слов
+     92
+     93	0000007C			 temp_done:
+     94	0000007C  C6 07	00		     mov byte ptr [edi], 0 ; Завершаем	строку
+     95	0000007F  EB 06	90 90 90	     jmp after_build
+     96
+     97	00000084			 empty_temp:
+     98	00000084  C6 07	00		     mov byte ptr [edi], 0 ; Пустая строка
+     99
+    100	00000087			 after_build:
+    101					     ; 3. Вставляем пробелы для достижения	длины k
+    102	00000087  8B 75	18		     mov esi, [ebp+24]	; ESI =	temp_buffer
+    103	0000008A  8B 7D	10		     mov edi, [ebp+16]	; EDI =	result_buffer
+    104	0000008D  8B 5D	0C		     mov ebx, [ebp+12]	; EBX =	k
+    105
+    106					     ; Проверка	на пустую строку
+    107	00000090  80 3E	00		     cmp byte ptr [esi], 0
+    108	00000093  0F 84	000000D5	     je	copy_direct
+    109
+    110					     ; Подсчёт длины и количества слов
+    111	00000099  33 C9			     xor ecx, ecx	; Длина строки
+    112	0000009B  33 D2			     xor edx, edx	; Количество слов
+    113	0000009D  B4 00			     mov ah, 0		; Флаг внутри	слова
+    114	0000009F			 count_loop:
+Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 3
+prog.asm
+
+
+
+    115	0000009F  8A 06			     mov al, [esi]
+    116	000000A1  3C 00			     cmp al, 0		; Конец строки?
+    117	000000A3  74 22	90 90 90 90	     je	end_count
+    118	000000A9  41			     inc ecx		; Увеличиваем длину
+    119	000000AA  3C 20			     cmp al, ' '	; Пробел?
+    120	000000AC  74 14	90 90 90 90	     je	space_char
+    121
+    122					     ; Обработка буквы
+    123	000000B2  84 E4			     test ah, ah	; Уже внутри слова?
+    124	000000B4  75 07	90 90 90 90	     jnz not_new_word
+    125	000000BA  42			     inc edx		; Новое слово
+    126	000000BB  B4 01			     mov ah, 1		; Устанавливаем флаг
+    127	000000BD			 not_new_word:
+    128	000000BD  EB 05	90 90 90	     jmp next_char
+    129
+    130	000000C2			 space_char:
+    131	000000C2  B4 00			     mov ah, 0		; Сбрасываем флаг
+    132	000000C4			 next_char:
+    133	000000C4  46			     inc esi
+    134	000000C5  EB D8			     jmp count_loop
+    135
+    136	000000C7			 end_count:
+    137	000000C7  8B 75	18		     mov esi, [ebp+24]	; Восстанавливаем начало строки
+    138	000000CA  3B CB			     cmp ecx, ebx	; Текущая длина >= k?
+    139	000000CC  0F 83	0000009C	     jae copy_direct
+    140	000000D2  85 D2			     test edx, edx	; Нет слов?
+    141	000000D4  0F 84	00000094	     jz	copy_direct
+    142	000000DA  83 FA	01		     cmp edx, 1		; Одно слово?
+    143	000000DD  74 51	90 90 90 90	     je	handle_single_word
+    144
+    145					     ; Вычисляем пробелы для	добавления
+    146	000000E3  8B C3			     mov eax, ebx	; EAX =	k
+    147	000000E5  2B C1			     sub eax, ecx	; EAX =	всего пробелов
+    148	000000E7  8B CA			     mov ecx, edx	; ECX =	количество слов
+    149	000000E9  49			     dec ecx		; Промежутки = слов - 1
+    150	000000EA  33 D2			     xor edx, edx
+    151	000000EC  F7 F1			     div ecx		; EAX =	p, EDX = q
+    152
+    153					     ; Вставляем пробелы
+    154	000000EE  33 C9			     xor ecx, ecx	; Счётчик промежутков
+    155	000000F0  8B D8			     mov ebx, eax	; EBX =	p
+    156	000000F2			 copy_loop:
+    157	000000F2  8A 06			     mov al, [esi]	; Читаем символ
+    158	000000F4  46			     inc esi
+    159	000000F5  84 C0			     test al, al	; Конец строки?
+    160	000000F7  74 2F	90 90 90 90	     jz	end_ins
+    161	000000FD  3C 20			     cmp al, ' '	; Пробел?
+    162	000000FF  75 22	90 90 90 90	     jne copy_char
+    163
+    164					     ; Обработка пробела
+    165	00000105  51			     push ecx		; Сохраняем счётчик
+    166	00000106  B9 00000001		     mov ecx, 1		; Базовый пробел
+    167	0000010B  03 CB			     add ecx, ebx	; + p пробелов
+    168	0000010D  58			     pop eax		; EAX =	текущий промежуток
+    169	0000010E  3B C2			     cmp eax, edx	; Сравниваем с q
+    170	00000110  73 05	90 90 90 90	     jae no_extra
+    171	00000116  41			     inc ecx		; Добавляем дополнительный пробел
+Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 4
+prog.asm
+
+
+
+    172	00000117			 no_extra:
+    173	00000117  50			     push eax		; Сохраняем обратно
+    174	00000118  B0 20			     mov al, ' '	; Вставляем пробелы
+    175	0000011A			 insert_spaces:
+    176	0000011A  88 07			     mov [edi],	al
+    177	0000011C  47			     inc edi
+    178	0000011D  E2 FB			     loop insert_spaces
+    179	0000011F  59			     pop ecx		; Восстанавливаем счётчик
+    180	00000120  41			     inc ecx		; Следующий промежуток
+    181	00000121  EB CF			     jmp copy_loop
+    182
+    183	00000123			 copy_char:
+    184	00000123  88 07			     mov [edi],	al	; Копируем символ
+    185	00000125  47			     inc edi
+    186	00000126  EB CA			     jmp copy_loop
+    187
+    188	00000128			 end_ins:
+    189	00000128  C6 07	00		     mov byte ptr [edi], 0 ; Конец	строки
+    190	0000012B  EB 4B	90 90 90	     jmp done_ins
+    191
+    192	00000130			 handle_single_word:
+    193					     ; Обработка одного слова
+    194	00000130  8B 75	18		     mov esi, [ebp+24]	; Начало строки
+    195	00000133  33 C9			     xor ecx, ecx	; Длина слова
+    196	00000135			 count_single_len:
+    197	00000135  80 3E	00		     cmp byte ptr [esi], 0
+    198	00000138  74 08	90 90 90 90	     je	end_count_single
+    199	0000013E  41			     inc ecx
+    200	0000013F  46			     inc esi
+    201	00000140  EB F3			     jmp count_single_len
+    202	00000142			 end_count_single:
+    203	00000142  8B 75	18		     mov esi, [ebp+24]	; Восстанавливаем начало
+    204	00000145			 copy_single_word:
+    205	00000145  8A 06			     mov al, [esi]
+    206	00000147  84 C0			     test al, al	; Конец слова?
+    207	00000149  74 0A	90 90 90 90	     jz	add_tail_spaces
+    208	0000014F  88 07			     mov [edi],	al
+    209	00000151  47			     inc edi
+    210	00000152  46			     inc esi
+    211	00000153  EB F0			     jmp copy_single_word
+    212
+    213	00000155			 add_tail_spaces:
+    214	00000155  8B 45	0C		     mov eax, [ebp+12]	; EAX =	k
+    215	00000158  2B C1			     sub eax, ecx	; Пробелы для	добавления
+    216	0000015A  8B C8			     mov ecx, eax
+    217	0000015C  7E 08	90 90 90 90	     jle done_tail	; Если <=0,	пропускаем
+    218	00000162  B0 20			     mov al, ' '
+    219	00000164  F3> AA		     rep stosb		; Заполняем пробелами
+    220	00000166			 done_tail:
+    221	00000166  C6 07	00		     mov byte ptr [edi], 0 ; Конец	строки
+    222	00000169  EB 0D	90 90 90	     jmp done_ins
+    223
+    224	0000016E			 copy_direct:
+    225					     ; Простое копирование
+    226	0000016E  8A 06			     mov al, [esi]
+    227	00000170  88 07			     mov [edi],	al
+    228	00000172  46			     inc esi
+Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 5
+prog.asm
+
+
+
+    229	00000173  47			     inc edi
+    230	00000174  84 C0			     test al, al
+    231	00000176  75 F6			     jnz copy_direct
+    232
+    233	00000178			 done_ins:
+    234	00000178  61			     popad		; Восстанавливаем регистры
+    235	00000179  5D			     pop ebp
+    236	0000017A  C2 0014		     ret 20		; Возврат с очисткой стека	(5		    +
+    237					 аргументов *	4 байта)
+    238	0000017D			 InsBlanks endp
+    239
+    240					 end
+Turbo Assembler	 Version 5.0	    09-15-25 10:33:23	    Page 6
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??date				  Text	 "09-15-25"
+??filename			  Text	 "prog	  "
+??time				  Text	 "10:33:23"
+??version			  Number 0500
+@32Bit				  Text	 1
+@CodeSize			  Text	 0
+@Cpu				  Text	 0F0FH
+@DataSize			  Text	 0
+@FileName			  Text	 prog
+@Interface			  Text	 003h
+@Model				  Text	 1
+@WordSize			  Text	 4
+@code				  Text	 FLAT
+@curseg				  Text	 _TEXT
+@data				  Text	 FLAT
+@stack				  Text	 FLAT
+InsBlanks			  Near32 FLAT:0000
+add_tail_spaces			  Near32 FLAT:0155
+after_build			  Near32 FLAT:0087
+copy_char			  Near32 FLAT:0123
+copy_direct			  Near32 FLAT:016E
+copy_first			  Near32 FLAT:0041
+copy_loop			  Near32 FLAT:00F2
+copy_single_word		  Near32 FLAT:0145
+copy_word_temp			  Near32 FLAT:006A
+count_loop			  Near32 FLAT:009F
+count_single_len		  Near32 FLAT:0135
+done_ins			  Near32 FLAT:0178
+done_tail			  Near32 FLAT:0166
+empty_temp			  Near32 FLAT:0084
+end_count			  Near32 FLAT:00C7
+end_count_single		  Near32 FLAT:0142
+end_ins				  Near32 FLAT:0128
+first_done			  Near32 FLAT:0051
+handle_single_word		  Near32 FLAT:0130
+insert_spaces			  Near32 FLAT:011A
+next_char			  Near32 FLAT:00C4
+next_temp_word			  Near32 FLAT:0060
+no_extra			  Near32 FLAT:0117
+not_new_word			  Near32 FLAT:00BD
+read_word			  Near32 FLAT:0020
+skip_spaces			  Near32 FLAT:000C
+space_char			  Near32 FLAT:00C2
+split_end			  Near32 FLAT:0034
+temp_done			  Near32 FLAT:007C
+word_done_temp			  Near32 FLAT:007A
+word_end			  Near32 FLAT:0033
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  _DATA				  32  0000 Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  017D Dword  Public  CODE
+

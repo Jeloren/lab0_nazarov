@@ -1,12 +1,13 @@
-includelib import32.lib
 .386
 .model flat, stdcall
-option casemap :none
 
+includelib import32.lib
+includelib prog.lib       ; импорт-библиотека для prog.dll
 
-extern MessageBoxA : PROC
-extern ExitProcess: PROC
-extern InsBlanks:PROC
+extern MessageBoxA: near
+extern ExitProcess: near
+extern InsBlanks: near
+
 .data
     input_string  db 'Hello asm world',0
     k             dd 26
@@ -17,15 +18,16 @@ extern InsBlanks:PROC
 
 .code
 main proc
-    ; Вызов InsBlanks с параметрами
+    ; Вызов InsBlanks напрямую
     push offset temp_buffer
     push offset words_buffer
     push offset result_buffer
     push k
     push offset input_string
     call InsBlanks
+    add esp, 20
 
-    ; Вывод результата через MessageBox
+    ; Вывод результата
     push 0
     push offset caption
     push offset result_buffer

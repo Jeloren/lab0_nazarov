@@ -1,0 +1,91 @@
+Turbo Assembler	 Version 5.0	    09-15-25 10:42:25	    Page 1
+lab4_n.asm
+
+
+
+      1					 .386
+      2	00000000			 .model	flat, stdcall
+      3
+      4					 includelib import32.lib
+      5					 includelib prog.lib	   ; импорт-библиотека для prog.dll
+      6
+      7					 extern	MessageBoxA: near
+      8					 extern	ExitProcess: near
+      9					 extern	InsBlanks: near
+     10
+     11	00000000			 .data
+     12	00000000  48 65	6C 6C 6F 20 61+	     input_string  db 'Hello asm world',0
+     13		  73 6D	20 77 6F 72 6C+
+     14		  64 00
+     15	00000010  0000001A		     k		   dd 26
+     16	00000014  0100*(00)		     result_buffer db 256 dup(0)
+     17	00000114  14*(00000000)		     words_buffer  dd 20 dup(0)
+     18	00000164  0100*(00)		     temp_buffer   db 256 dup(0)
+     19	00000264  52 65	73 75 6C 74 00	     caption	   db "Result",0
+     20
+     21	0000026B			 .code
+     22	00000000			 main proc
+     23					     ; Вызов InsBlanks напрямую
+     24	00000000  68 00000164r		     push offset temp_buffer
+     25	00000005  68 00000114r		     push offset words_buffer
+     26	0000000A  68 00000014r		     push offset result_buffer
+     27	0000000F  FF 35	00000010r	     push k
+     28	00000015  68 00000000r		     push offset input_string
+     29	0000001A  E8 00000000e		     call InsBlanks
+     30	0000001F  83 C4	14		     add esp, 20
+     31
+     32					     ; Вывод результата
+     33	00000022  6A 00			     push 0
+     34	00000024  68 00000264r		     push offset caption
+     35	00000029  68 00000014r		     push offset result_buffer
+     36	0000002E  6A 00			     push 0
+     37	00000030  E8 00000000e		     call MessageBoxA
+     38
+     39					     ; Завершение программы
+     40	00000035  6A 00			     push 0
+     41	00000037  E8 00000000e		     call ExitProcess
+     42	0000003C			 main endp
+     43
+     44					 end main
+Turbo Assembler	 Version 5.0	    09-15-25 10:42:25	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??date				  Text	 "09-15-25"
+??filename			  Text	 "lab4_n  "
+??time				  Text	 "10:42:25"
+??version			  Number 0500
+@32Bit				  Text	 1
+@CodeSize			  Text	 0
+@Cpu				  Text	 0F0FH
+@DataSize			  Text	 0
+@FileName			  Text	 lab4_n
+@Interface			  Text	 003h
+@Model				  Text	 1
+@WordSize			  Text	 4
+@code				  Text	 FLAT
+@curseg				  Text	 _TEXT
+@data				  Text	 FLAT
+@stack				  Text	 FLAT
+ExitProcess			  Near32 ----:---- Extern
+InsBlanks			  Near32 ----:---- Extern
+MessageBoxA			  Near32 ----:---- Extern
+caption				  Byte	 FLAT:0264
+input_string			  Byte	 FLAT:0000
+k				  Dword	 FLAT:0010
+main				  Near32 FLAT:0000
+result_buffer			  Byte	 FLAT:0014
+temp_buffer			  Byte	 FLAT:0164
+words_buffer			  Dword	 FLAT:0114
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  _DATA				  32  026B Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  003C Dword  Public  CODE
+
