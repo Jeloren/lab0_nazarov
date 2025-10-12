@@ -1,5 +1,3 @@
-tasm.exe lab_5.asm /l
-pause
-tlink.exe lab_5.obj
-pause
-td.exe lab_5.exe
+tasm /zi lab_5.asm
+tlink /t lab_5.obj
+td lab_5.com

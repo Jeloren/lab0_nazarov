@@ -1,113 +1,143 @@
-Turbo Assembler	 Version 4.1	    10/09/25 20:23:29	    Page 1
+Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 1
 lab_5.asm
 
 
 
-      1					 ; Директива для использования	команд процессора   +
-      2					 80386
-      3					 .386
+      1				     ; Программа для TASM 1.1 (DOS,	Real Mode, 8086	compatible)
+      2	0000			     .MODEL SMALL
+      3	0000			     .STACK 100h
       4
-      5					 ; Определение сегмента кода для COM-файла
-      6	    0000			 CSEG SEGMENT PARA USE16 'CODE'
-      7					     ASSUME CS:CSEG, DS:CSEG, ES:CSEG
-      8
-      9					     ORG 100h
+      5	0000			     .DATA
+      6					 ; Тестовая исходная строка
+      7					 ; Исходные 5 бит: 10101b (21d, 15h). В байте это: 00010101b
+      8					 ; Ожидаемый результат: 10 01	10 01 10 b
+      9	0000  15 00			 SOURCE_STR  DB	 15h, 00h
      10
-     11					 ; --- Основная	программа (для вызова	и теста) ---
-     12	    0100			 start:
-     13					     ; 1. Готовим параметры для вызова	подпрограммы
-     14	    0100  8C C8			     MOV AX, CS
-     15	    0102  8E C0			     MOV ES, AX
-     16	    0104  BA 0110r		     LEA DX, BIT_STRING	 ; Загружаем в DX адрес нашей битовой    +
-     17					 строки
-     18
-     19	    0107  B9 0010 90		     MOV CX, BIT_LENGTH	 ; Длина строки в битах
-     20
-     21					     ; 2. Вызываем подпрограмму
-     22	    010B  E8 0004		     CALL REVERSE_BITS
+     11					 ; Результирующая	строка (5	бит * 2 = 10	бит,	2 байта)
+     12	0002  05*(??)			 RESULT_STR  DB	 5 DUP (?)
+     13
+     14	0007			     .CODE
+     15
+     16				     ; -----------------------------------------------------------------
+     17				     ; Основная	программа для вызова подпрограммы
+     18				     ; -----------------------------------------------------------------
+     19	0000			     MAIN PROC
+     20	0000  B8 0000s			 MOV	 AX, @DATA
+     21	0003  8E D8			 MOV	 DS, AX
+     22	0005  8E C0			 MOV	 ES, AX
      23
-     24					     ; 3. Завершаем программу
-     25	    010E  CD 20			     INT 20h
-     26
-     27					 ; --- Данные для тестирования ---
-     28	    0110  B1 95			 BIT_STRING  DB	0B1h, 95h    ; Тестовая	строка: 10110001 10010101b (16 бит)
-     29		  =0010			 BIT_LENGTH  EQU 16	     ; Длина строки в битах
-     30
-     31					 ; =========================================================================
-     32					 ; ПОДПРОГРАММА: REVERSE_BITS (ОПТИМИЗИРОВАННЫЙ ВАРИАНТ)
-     33					 ; Назначение: Переворачивает битовую строку	    +
-     34					 "задом наперёд".
-     35					 ; Вход:	   ES:DX - адрес строки, CX - длина в битах.
-     36					 ; =========================================================================
-     37	    0112			 REVERSE_BITS PROC NEAR
-     38	    0112  51			     PUSH CX
-     39	    0113  56			     PUSH SI
-     40	    0114  57			     PUSH DI
-     41	    0115  53			     PUSH BX
-     42	    0116  50			     PUSH AX		 ; Сохраняем AX, т.к. будем использовать+
-     43					 AL/AH
-     44
-     45	    0117  8B DA			     MOV BX, DX		 ; Используем	BX для корректной		    +
-     46					 адресации
-     47	    0119  33 F6			     XOR SI, SI		 ; Индекс	первого бита
-     48	    011B  8B F9			     MOV DI, CX
-     49	    011D  4F			     DEC DI		 ; Индекс	последнего бита
-     50
-     51	    011E  D1 E9			     SHR CX, 1		 ; Количество	пар для обмена
-     52	    0120  76 24	90 90		     JBE done_reversing	 ; Выход, если	длина < 2
+     24	0007  BB 0000r			 MOV	 BX, OFFSET SOURCE_STR	 ; ← BX, как требуется
+     25	000A  BA 0002r			 MOV	 DX, OFFSET RESULT_STR	 ; ← DX, как требуется
+     26	000D  B9 0005			 MOV	 CX, 5
+     27
+     28	0010  E8 0004			 CALL	 BIT_EXPAND_PROC
+     29
+     30	0013  B4 4C			 MOV	 AH, 4Ch
+     31	0015  CD 21			 INT	 21h
+     32	0017			     MAIN ENDP
+     33
+     34				     ; -----------------------------------------------------------------
+     35				     ; Подпрограмма: BIT_EXPAND_PROC
+     36				     ; Задача: Расширение битовой строки (0 -> 01,	1 -> 10)
+     37				     ; Вход: DS:SI (источник), ES:DI (приемник), CX	(длина в битах)
+     38				     ; -----------------------------------------------------------------
+     39	0017			     BIT_EXPAND_PROC PROC NEAR
+     40	0017  50			 PUSH	 AX
+     41	0018  53			 PUSH	 BX
+     42	0019  51			 PUSH	 CX
+     43	001A  52			 PUSH	 DX
+     44	001B  56			 PUSH	 SI
+     45	001C  57			 PUSH	 DI
+     46
+     47	001D  8B F3			 MOV	 SI, BX		 ; DS:SI = источник
+     48	001F  8B FA			 MOV	 DI, DX		 ; ES:DI = приёмник (FS	недоступен в	8086)
+     49
+     50	0021  32 D2			 XOR	 DL, DL		 ; bit index source
+     51	0023  32 F6			 XOR	 DH, DH		 ; bit index dest
+     52	0025  32 DB			 XOR	 BL, BL		 ; result byte
      53
-     54	    0124			 swap_loop:
-     55					     ; Эффективный алгоритм:	инвертируем биты,	    +
-     56					 только если они не равны.
-     57
-Turbo Assembler	 Version 4.1	    10/09/25 20:23:29	    Page 2
+     54	0027  AC			 LODSB			 ; AL =	[SI], SI++ (но мы не хотим SI++, поэтому  +
+     55				     лучше	MOV AL,	[SI])
+     56	0028  4E			 DEC	 SI		 ; компенсируем LODSB
+     57					 ; Лучше:
+Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 2
 lab_5.asm
 
 
 
-     58					     ; 1. Помещаем оба бита в регистр для сравнения,	не+
-     59					 используя стек.
-     60	    0124  B0 00			     MOV AL, 0
-     61	    0126  26: 0F A3 37		     BT	 ES:[BX], SI	 ; Тестируем первый бит, результат в CF
-     62	    012A  D0 D0			     RCL AL, 1		 ; Перемещаем	бит из CF в AL (теперь AL =	    +
-     63					 0000000_start_bit)
-     64
-     65	    012C  B4 00			     MOV AH, 0
-     66	    012E  26: 0F A3 3F		     BT	 ES:[BX], DI	 ; Тестируем второй бит, результат в CF
-     67	    0132  D0 D4			     RCL AH, 1		 ; Перемещаем	бит из CF в AH (теперь AH =	    +
-     68					 0000000_end_bit)
+     58	0029  8A 04			 MOV	 AL, [SI]
+     59
+     60	002B			     EXPAND_LOOP:
+     61	002B  0B C9			 OR	 CX, CX
+     62	002D  74 3D			 JZ	 WRITE_FINAL_BYTE
+     63
+     64					 ; --- Extract bit DL from AL ---
+     65	002F  8A E0			 MOV	 AH, AL		 ; временная копия
+     66	0031  8A CA			 MOV	 CL, DL
+     67	0033  D2 EC			 SHR	 AH, CL
+     68	0035  80 E4 01			 AND	 AH, 1		 ; AH =	0 or 1
      69
-     70					     ; 2. Сравниваем биты.
-     71	    0134  3A C4			     CMP AL, AH
-     72	    0136  74 0A	90 90		     JE	 no_swap_needed	 ; Если биты равны, ничего не делаем,    +
-     73					 переходим к следующей итерации.
-     74
-     75					     ; 3. Если биты разные - инвертируем оба.
-     76					     ; Команда BTC (Bit Test and	Complement) идеально подходит для+
-     77					 этого.
-     78	    013A  26: 0F BB 37		     BTC ES:[BX], SI
-     79	    013E  26: 0F BB 3F		     BTC ES:[BX], DI
-     80
-     81	    0142			 no_swap_needed:
-     82					     ; 4. Сдвигаем указатели и переходим к следующей   +
-     83					 итерации.
-     84	    0142  46			     INC SI
-     85	    0143  4F			     DEC DI
-     86	    0144  E2 DE			     LOOP swap_loop
+     70					 ; --- Map: 0→01 (1),	1→10 (2)
+     71	0038  FE C4			 INC	 AH		 ; AH =	1 or 2
+     72	003A  D0 E4			 SHL	 AH, 1
+     73	003C  FE CC			 DEC	 AH		 ; теперь: 0→1,	1→2 — но проще:
+     74					 ; Вместо	этого:
+     75	003E  80 FC 01			 CMP	 AH, 1
+     76	0041  74 05			 JE	 BIT_ZERO
+     77	0043  B4 02			 MOV	 AH, 2
+     78	0045  EB 03 90			 JMP	 INSERT_PAIR
+     79	0048			     BIT_ZERO:
+     80	0048  B4 01			 MOV	 AH, 1
+     81
+     82	004A			     INSERT_PAIR:
+     83					 ; --- Insert AH (2-bit	value) at position DH in BL ---
+     84	004A  8A CE			 MOV	 CL, DH
+     85	004C  D2 E4			 SHL	 AH, CL
+     86	004E  0A DC			 OR	 BL, AH
      87
-     88	    0146			 done_reversing:
-     89	    0146  58			     POP AX
-     90	    0147  5B			     POP BX
-     91	    0148  5F			     POP DI
-     92	    0149  5E			     POP SI
-     93	    014A  59			     POP CX
-     94	    014B  C3			     RET
-     95	    014C			 REVERSE_BITS ENDP
-     96					 ; =========================================================================
-     97
-     98	    014C			 CSEG ENDS
-     99					 END start
-Turbo Assembler	 Version 4.1	    10/09/25 20:23:29	    Page 3
+     88					 ; --- Update source bit index ---
+     89	0050  FE C2			 INC	 DL
+     90	0052  80 FA 08			 CMP	 DL, 8
+     91	0055  72 05			 JB	 NO_SRC_NEXT
+     92	0057  46			 INC	 SI
+     93	0058  8A 04			 MOV	 AL, [SI]
+     94	005A  32 D2			 XOR	 DL, DL
+     95	005C			     NO_SRC_NEXT:
+     96
+     97					 ; --- Update dest bit index (+2) ---
+     98	005C  80 C6 02			 ADD	 DH, 2
+     99	005F  80 FE 08			 CMP	 DH, 8
+    100	0062  72 05			 JB	 NO_DST_NEXT
+    101	0064  AA			 STOSB			 ; [DI]	= BL, DI++
+    102	0065  32 DB			 XOR	 BL, BL
+    103	0067  32 F6			 XOR	 DH, DH
+    104	0069			     NO_DST_NEXT:
+    105
+    106	0069  49			 DEC	 CX
+    107	006A  EB BF			 JMP	 EXPAND_LOOP
+    108
+    109	006C			     WRITE_FINAL_BYTE:
+    110	006C  0A F6			 OR	 DH, DH
+    111	006E  74 01			 JZ	 ALL_DONE
+    112	0070  AA			 STOSB
+    113
+    114	0071			     ALL_DONE:
+Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 3
+lab_5.asm
+
+
+
+    115	0071  5F			 POP	 DI
+    116	0072  5E			 POP	 SI
+    117	0073  5A			 POP	 DX
+    118	0074  59			 POP	 CX
+    119	0075  5B			 POP	 BX
+    120	0076  58			 POP	 AX
+    121	0077  C3			 RET
+    122	0078			     BIT_EXPAND_PROC ENDP
+    123
+    124				     END MAIN
+Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 4
 Symbol Table
 
 
@@ -115,23 +145,38 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??DATE				  Text	 "10/09/25"
+??DATE				  Text	 "10/11/25"
 ??FILENAME			  Text	 "lab_5	  "
-??TIME				  Text	 "20:23:29"
+??TIME				  Text	 "20:44:14"
 ??VERSION			  Number 040A
-@CPU				  Text	 0F0FH
-@CURSEG				  Text	 CSEG
+@32BIT				  Text	 0
+@CODE				  Text	 _TEXT
+@CODESIZE			  Text	 0
+@CPU				  Text	 0101H
+@CURSEG				  Text	 _TEXT
+@DATA				  Text	 DGROUP
+@DATASIZE			  Text	 0
 @FILENAME			  Text	 LAB_5
+@INTERFACE			  Text	 000H
+@MODEL				  Text	 2
+@STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-BIT_LENGTH			  Number 0010
-BIT_STRING			  Byte	 CSEG:0110
-DONE_REVERSING			  Near	 CSEG:0146
-NO_SWAP_NEEDED			  Near	 CSEG:0142
-REVERSE_BITS			  Near	 CSEG:0112
-START				  Near	 CSEG:0100
-SWAP_LOOP			  Near	 CSEG:0124
+ALL_DONE			  Near	 _TEXT:0071
+BIT_EXPAND_PROC			  Near	 _TEXT:0017
+BIT_ZERO			  Near	 _TEXT:0048
+EXPAND_LOOP			  Near	 _TEXT:002B
+INSERT_PAIR			  Near	 _TEXT:004A
+MAIN				  Near	 _TEXT:0000
+NO_DST_NEXT			  Near	 _TEXT:0069
+NO_SRC_NEXT			  Near	 _TEXT:005C
+RESULT_STR			  Byte	 DGROUP:0002
+SOURCE_STR			  Byte	 DGROUP:0000
+WRITE_FINAL_BYTE		  Near	 _TEXT:006C
 
 Groups & Segments		  Bit Size Align  Combine Class
 
-CSEG				  16  014C Para	  none	  CODE
+DGROUP				  Group
+  STACK				  16  0100 Para	  Stack	  STACK
+  _DATA				  16  0007 Word	  Public  DATA
+_TEXT				  16  0078 Word	  Public  CODE
 

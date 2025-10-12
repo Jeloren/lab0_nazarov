@@ -1,29 +1,38 @@
-def reverse_bits_simple(data, length):
+def bit_expand(source_bytes: bytes, bit_len: int) -> bytes:
 
-    left = 0
-    right = length - 1
-    
-    while left < right:
-        left_byte = left // 8
-        left_bit = left % 8
-        right_byte = right // 8  
-        right_bit = right % 8
-        
-        bit_left = (data[left_byte] >> left_bit) & 1
-        bit_right = (data[right_byte] >> right_bit) & 1
-        
-        if bit_left != bit_right:
-            data[left_byte] ^= (1 << left_bit)
-            data[right_byte] ^= (1 << right_bit)
-        
-        left += 1
-        right -= 1
-    
-    return data
+    input_bits = []
+    for i in range(bit_len):
+        byte_idx = i // 8
+        bit_idx = i % 8
+        bit = (source_bytes[byte_idx] >> bit_idx) & 1
+        input_bits.append(bit)
+
+    output_bits = []
+    for bit in input_bits:
+        if bit == 0:
+            output_bits.extend([1, 0])
+        else:
+            output_bits.extend([0, 1])
+
+
+
+
+    result_bytes = bytearray()
+    for i in range(0, len(output_bits), 8):
+        byte_val = 0
+        for j in range(8):
+            if i + j < len(output_bits):
+                if output_bits[i + j]:
+                    byte_val |= (1 << j)
+        result_bytes.append(byte_val)
+
+    return bytes(result_bytes)
+
 
 if __name__ == "__main__":
-    test_data = [0xB1, 0x95]
-    bits_count = 16
-    
-    result = reverse_bits_simple(test_data, bits_count)
-    print("Результат:", [hex(x) for x in result])
+    source = bytes([0x15])
+    n = 5
+    result = bit_expand(source, n)
+    print("Исходные байты:", source.hex())
+    print("Результат (hex):", result.hex())
+    print("Ожидаемо: 66 02 →", "✅" if result[:2] == bytes([0x66, 0x02]) else "❌")

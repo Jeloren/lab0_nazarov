@@ -1,87 +1,122 @@
-; Директива для использования команд процессора 80386
 .386
+CSEG    SEGMENT PARA USE16 'CODE'
+    ASSUME  CS:CSEG,DS:CSEG,SS:CSEG
+    ORG     100h
 
-; Определение сегмента кода для COM-файла
-CSEG SEGMENT PARA USE16 'CODE'
-    ASSUME CS:CSEG, DS:CSEG, ES:CSEG
-
-    ORG 100h
-
-; --- Основная программа (для вызова и теста) ---
 start:
-    ; 1. Готовим параметры для вызова подпрограммы
-    MOV AX, CS
-    MOV ES, AX
-    LEA DX, BIT_STRING  ; Загружаем в DX адрес нашей битовой строки
+    ; Инициализация сегментов
+    MOV     AX, CS
+    MOV     DS, AX
+    MOV     ES, AX
+    MOV     FS, AX
 
-    MOV CX, BIT_LENGTH  ; Длина строки в битах
+    ; Подготовка параметров для процедуры
+    MOV     BX, OFFSET SOURCE_STR   ; DS:BX - адрес исходной строки
+    MOV     DX, OFFSET RESULT_STR   ; FS:DX - адрес результирующей строки
+    MOV     CX, 5                   ; Длина в битах
 
-    ; 2. Вызываем подпрограмму
-    CALL REVERSE_BITS
+    CALL    BIT_EXPAND_PROC
 
-    ; 3. Завершаем программу
-    INT 20h
+    ; Завершение программы
+    MOV     AX, 4C00h
+    INT     21h
 
-; --- Данные для тестирования ---
-BIT_STRING  DB 0B1h, 95h    ; Тестовая строка: 10110001 10010101b (16 бит)
-BIT_LENGTH  EQU 16          ; Длина строки в битах
+; ---------------------------------------------------------------
+; ПРОЦЕДУРА РАСШИРЕНИЯ БИТОВОЙ СТРОКИ
+; Вход:
+;   DS:BX - исходная строка
+;   FS:DX - результирующая строка
+;   [cite_start]CX    - длина в битах [cite: 260]
+; ---------------------------------------------------------------
+BIT_EXPAND_PROC PROC
+    PUSH    AX
+    PUSH    BX
+    PUSH    CX
+    PUSH    DX
+    PUSH    SI
+    PUSH    DI
 
-; =========================================================================
-; ПОДПРОГРАММА: REVERSE_BITS (ОПТИМИЗИРОВАННЫЙ ВАРИАНТ)
-; Назначение: Переворачивает битовую строку "задом наперёд".
-; Вход:       ES:DX - адрес строки, CX - длина в битах.
-; =========================================================================
-REVERSE_BITS PROC NEAR
-    PUSH CX
-    PUSH SI
-    PUSH DI
-    PUSH BX
-    PUSH AX             ; Сохраняем AX, т.к. будем использовать AL/AH
+    MOV     SI, BX          ; источник: DS:SI
+    MOV     DI, DX          ; приёмник: FS:DI
 
-    MOV BX, DX          ; Используем BX для корректной адресации
-    XOR SI, SI          ; Индекс первого бита
-    MOV DI, CX
-    DEC DI              ; Индекс последнего бита
-    
-    SHR CX, 1           ; Количество пар для обмена
-    JBE done_reversing  ; Выход, если длина < 2
+    XOR     BL, BL          ; BL = текущий байт результата
+    XOR     BH, BH          ; BH = счётчик бита источника (0..7)
+    MOV     DH, 0           ; DH = счётчик бита приёмника (0..7)
 
-swap_loop:
-    ; Эффективный алгоритм: инвертируем биты, только если они не равны.
-    
-    ; 1. Помещаем оба бита в регистр для сравнения, не используя стек.
-    MOV AL, 0
-    BT  ES:[BX], SI     ; Тестируем первый бит, результат в CF
-    RCL AL, 1           ; Перемещаем бит из CF в AL (теперь AL = 0000000_start_bit)
+    MOV     AL, [SI]        ;  Загружаем первый байт источника
 
-    MOV AH, 0
-    BT  ES:[BX], DI     ; Тестируем второй бит, результат в CF
-    RCL AH, 1           ; Перемещаем бит из CF в AH (теперь AH = 0000000_end_bit)
+EXPAND_LOOP:
+    OR      CX, CX
+    JZ      WRITE_LAST
 
-    ; 2. Сравниваем биты.
-    CMP AL, AH
-    JE  no_swap_needed  ; Если биты равны, ничего не делаем, переходим к следующей итерации.
+    ; --- Извлекаем бит номер BH из AL ---
+    MOV     AH, AL
+    PUSH    CX              ;  Сохраняем CX перед использованием CL
+    MOV     CL, BH
+    SHR     AH, CL
+    POP     CX              ;  Восстанавливаем CX
+    AND     AH, 1
 
-    ; 3. Если биты разные - инвертируем оба.
-    ; Команда BTC (Bit Test and Complement) идеально подходит для этого.
-    BTC ES:[BX], SI
-    BTC ES:[BX], DI
+    ; --- Преобразуем: 0 -> 01 (1), 1 -> 10 (2) ---
+    CMP     AH, 0
+    JNE     SET_10
+    MOV     AH, 1
+    JMP     INSERT
+SET_10:
+    MOV     AH, 2
 
-no_swap_needed:
-    ; 4. Сдвигаем указатели и переходим к следующей итерации.
-    INC SI
-    DEC DI
-    LOOP swap_loop
+INSERT:
+    ; --- Вставляем AH (2 бита) в BL на позицию DH ---
+    PUSH    CX              ;  Снова сохраняем CX
+    MOV     CL, DH
+    SHL     AH, CL
+    POP     CX              ;  Снова восстанавливаем CX
+    OR      BL, AH
 
-done_reversing:
-    POP AX
-    POP BX
-    POP DI
-    POP SI
-    POP CX
+    ; --- Обновляем счётчики ---
+    INC     BH              ; Следующий бит источника
+    CMP     BH, 8
+    JB      NO_SRC_NEXT
+    ; Нужен следующий байт источника
+    INC     SI
+    MOV     AL, [SI]        ;  Загружаем следующий байт
+    XOR     BH, BH          ; Сбрасываем счётчик битов источника
+NO_SRC_NEXT:
+
+    ADD     DH, 2           ; Мы вставили 2 бита
+    CMP     DH, 8
+    JB      NO_DST_WRITE
+    ; Байт приёмника заполнен, записываем его
+    MOV     FS:[DI], BL
+    INC     DI
+    XOR     BL, BL          ; Очищаем аккумулятор результата
+    XOR     DH, DH          ; Сбрасываем счётчик битов приёмника
+NO_DST_WRITE:
+
+    DEC     CX
+    JMP     EXPAND_LOOP
+
+WRITE_LAST:
+    ; Записываем последний неполный байт, если он есть
+    CMP     DH, 0
+    JE      DONE
+    MOV     FS:[DI], BL
+
+DONE:
+    POP     DI
+    POP     SI
+    POP     DX
+    POP     CX
+    POP     BX
+    POP     AX
     RET
-REVERSE_BITS ENDP
-; =========================================================================
+BIT_EXPAND_PROC ENDP
 
-CSEG ENDS
+; -----------------------------
+; Данные
+; -----------------------------
+SOURCE_STR  DB  15h, 0      ; 00010101b
+RESULT_STR  DB  3 DUP(0)    ; Буфер для результата
+
+CSEG    ENDS
 END start
