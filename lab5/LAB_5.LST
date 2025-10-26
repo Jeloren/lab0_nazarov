@@ -1,143 +1,152 @@
-Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 1
+Turbo Assembler	 Version 4.1	    10/24/25 09:02:45	    Page 1
 lab_5.asm
 
 
 
-      1				     ; Программа для TASM 1.1 (DOS,	Real Mode, 8086	compatible)
-      2	0000			     .MODEL SMALL
-      3	0000			     .STACK 100h
-      4
-      5	0000			     .DATA
-      6					 ; Тестовая исходная строка
-      7					 ; Исходные 5 бит: 10101b (21d, 15h). В байте это: 00010101b
-      8					 ; Ожидаемый результат: 10 01	10 01 10 b
-      9	0000  15 00			 SOURCE_STR  DB	 15h, 00h
-     10
-     11					 ; Результирующая	строка (5	бит * 2 = 10	бит,	2 байта)
-     12	0002  05*(??)			 RESULT_STR  DB	 5 DUP (?)
-     13
-     14	0007			     .CODE
-     15
-     16				     ; -----------------------------------------------------------------
-     17				     ; Основная	программа для вызова подпрограммы
-     18				     ; -----------------------------------------------------------------
-     19	0000			     MAIN PROC
-     20	0000  B8 0000s			 MOV	 AX, @DATA
-     21	0003  8E D8			 MOV	 DS, AX
-     22	0005  8E C0			 MOV	 ES, AX
-     23
-     24	0007  BB 0000r			 MOV	 BX, OFFSET SOURCE_STR	 ; ← BX, как требуется
-     25	000A  BA 0002r			 MOV	 DX, OFFSET RESULT_STR	 ; ← DX, как требуется
-     26	000D  B9 0005			 MOV	 CX, 5
-     27
-     28	0010  E8 0004			 CALL	 BIT_EXPAND_PROC
-     29
-     30	0013  B4 4C			 MOV	 AH, 4Ch
-     31	0015  CD 21			 INT	 21h
-     32	0017			     MAIN ENDP
-     33
-     34				     ; -----------------------------------------------------------------
-     35				     ; Подпрограмма: BIT_EXPAND_PROC
-     36				     ; Задача: Расширение битовой строки (0 -> 01,	1 -> 10)
-     37				     ; Вход: DS:SI (источник), ES:DI (приемник), CX	(длина в битах)
-     38				     ; -----------------------------------------------------------------
-     39	0017			     BIT_EXPAND_PROC PROC NEAR
-     40	0017  50			 PUSH	 AX
-     41	0018  53			 PUSH	 BX
-     42	0019  51			 PUSH	 CX
-     43	001A  52			 PUSH	 DX
-     44	001B  56			 PUSH	 SI
-     45	001C  57			 PUSH	 DI
-     46
-     47	001D  8B F3			 MOV	 SI, BX		 ; DS:SI = источник
-     48	001F  8B FA			 MOV	 DI, DX		 ; ES:DI = приёмник (FS	недоступен в	8086)
-     49
-     50	0021  32 D2			 XOR	 DL, DL		 ; bit index source
-     51	0023  32 F6			 XOR	 DH, DH		 ; bit index dest
-     52	0025  32 DB			 XOR	 BL, BL		 ; result byte
-     53
-     54	0027  AC			 LODSB			 ; AL =	[SI], SI++ (но мы не хотим SI++, поэтому  +
-     55				     лучше	MOV AL,	[SI])
-     56	0028  4E			 DEC	 SI		 ; компенсируем LODSB
-     57					 ; Лучше:
-Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 2
+      1					 .386
+      2	    0000			 CSEG	 SEGMENT PARA USE16 'CODE'
+      3					     ASSUME  CS:CSEG,DS:CSEG,SS:CSEG
+      4					     ORG     100h
+      5
+      6	    0100			 start:
+      7					     ; Инициализация сегментов
+      8	    0100  8C C8			     MOV     AX, CS
+      9	    0102  8E D8			     MOV     DS, AX
+     10	    0104  8E C0			     MOV     ES, AX
+     11	    0106  8E E0			     MOV     FS, AX
+     12
+     13					     ; Подготовка параметров для	процедуры
+     14	    0108  BB 0180r		     MOV     BX, OFFSET	SOURCE_STR   ; DS:BX - адрес исходной строки
+     15	    010B  BA 0182r		     MOV     DX, OFFSET	RESULT_STR   ; FS:DX - адрес результирующей	    +
+     16					 строки
+     17	    010E  B9 0005		     MOV     CX, 5		     ; Длина в битах
+     18
+     19	    0111  E8 0005		     CALL    BIT_EXPAND_PROC
+     20
+     21					     ; Завершение программы
+     22	    0114  B8 4C00		     MOV     AX, 4C00h
+     23	    0117  CD 21			     INT     21h
+     24
+     25					 ; ---------------------------------------------------------------
+     26					 ; Вход:
+     27					 ;   DS:BX - исходная строка
+     28					 ;   FS:DX - результирующая строка
+     29					 ;   CX	   - длина	в битах [cite: 260]
+     30					 ; ---------------------------------------------------------------
+     31	    0119			 BIT_EXPAND_PROC PROC
+     32	    0119  50			     PUSH    AX
+     33	    011A  53			     PUSH    BX
+     34	    011B  51			     PUSH    CX
+     35	    011C  52			     PUSH    DX
+     36	    011D  56			     PUSH    SI
+     37	    011E  57			     PUSH    DI
+     38	    011F  55			     PUSH    BP		     ; Сохраняем BP, т.к. используем его    +
+     39					 для	счетчика
+     40
+     41	    0120  8B F3			     MOV     SI, BX	     ; источник: DS:SI
+     42	    0122  8B FA			     MOV     DI, DX	     ; приёмник: FS:DI
+     43
+     44	    0124  32 DB			     XOR     BL, BL	     ; BL = текущий байт результата
+     45	    0126  33 ED			     XOR     BP, BP	     ; BP = счётчик бита источника (0..7)
+     46	    0128  B6 00			     MOV     DH, 0	     ; DH = счётчик бита приёмника (0..7)
+     47
+     48	    012A  8A 04			     MOV     AL, [SI]	     ; Загружаем первый байт	источника
+     49	    012C  32 E4			     XOR     AH, AH	     ; Очищаем AH, т.к. BT работает с	AX
+     50
+     51	    012E			 EXPAND_LOOP:
+     52	    012E  0B C9			     OR	     CX, CX
+     53	    0130  74 3C	90 90		     JZ	     WRITE_LAST	     ; Если	CX=0, биты кончились, выходим
+     54
+     55					     ; --- Извлекаем бит номер	BP из	AX с помощью BT	---
+     56					     ; Мы используем: BT AX, BP
+     57					     ; AX (r/m16) содержит байт (в	AL)
+Turbo Assembler	 Version 4.1	    10/24/25 09:02:45	    Page 2
 lab_5.asm
 
 
 
-     58	0029  8A 04			 MOV	 AL, [SI]
-     59
-     60	002B			     EXPAND_LOOP:
-     61	002B  0B C9			 OR	 CX, CX
-     62	002D  74 3D			 JZ	 WRITE_FINAL_BYTE
-     63
-     64					 ; --- Extract bit DL from AL ---
-     65	002F  8A E0			 MOV	 AH, AL		 ; временная копия
-     66	0031  8A CA			 MOV	 CL, DL
-     67	0033  D2 EC			 SHR	 AH, CL
-     68	0035  80 E4 01			 AND	 AH, 1		 ; AH =	0 or 1
-     69
-     70					 ; --- Map: 0→01 (1),	1→10 (2)
-     71	0038  FE C4			 INC	 AH		 ; AH =	1 or 2
-     72	003A  D0 E4			 SHL	 AH, 1
-     73	003C  FE CC			 DEC	 AH		 ; теперь: 0→1,	1→2 — но проще:
-     74					 ; Вместо	этого:
-     75	003E  80 FC 01			 CMP	 AH, 1
-     76	0041  74 05			 JE	 BIT_ZERO
-     77	0043  B4 02			 MOV	 AH, 2
-     78	0045  EB 03 90			 JMP	 INSERT_PAIR
-     79	0048			     BIT_ZERO:
-     80	0048  B4 01			 MOV	 AH, 1
-     81
-     82	004A			     INSERT_PAIR:
-     83					 ; --- Insert AH (2-bit	value) at position DH in BL ---
-     84	004A  8A CE			 MOV	 CL, DH
-     85	004C  D2 E4			 SHL	 AH, CL
-     86	004E  0A DC			 OR	 BL, AH
-     87
-     88					 ; --- Update source bit index ---
-     89	0050  FE C2			 INC	 DL
-     90	0052  80 FA 08			 CMP	 DL, 8
-     91	0055  72 05			 JB	 NO_SRC_NEXT
-     92	0057  46			 INC	 SI
-     93	0058  8A 04			 MOV	 AL, [SI]
-     94	005A  32 D2			 XOR	 DL, DL
-     95	005C			     NO_SRC_NEXT:
-     96
-     97					 ; --- Update dest bit index (+2) ---
-     98	005C  80 C6 02			 ADD	 DH, 2
-     99	005F  80 FE 08			 CMP	 DH, 8
-    100	0062  72 05			 JB	 NO_DST_NEXT
-    101	0064  AA			 STOSB			 ; [DI]	= BL, DI++
-    102	0065  32 DB			 XOR	 BL, BL
-    103	0067  32 F6			 XOR	 DH, DH
-    104	0069			     NO_DST_NEXT:
-    105
-    106	0069  49			 DEC	 CX
-    107	006A  EB BF			 JMP	 EXPAND_LOOP
-    108
-    109	006C			     WRITE_FINAL_BYTE:
-    110	006C  0A F6			 OR	 DH, DH
-    111	006E  74 01			 JZ	 ALL_DONE
-    112	0070  AA			 STOSB
-    113
-    114	0071			     ALL_DONE:
-Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 3
+     58					     ; BP (r16)	содержит номер бита (0-7)
+     59	    0134  0F A3	E8		     BT	     AX, BP
+     60
+     61					     ; --- Преобразуем: 0 ->	01 (1),	1 -> 10	(2) ---
+     62	    0137  72 07	90 90		     JC	     SET_10	     ; Если	CF=1 (бит был 1),	идем ставить	2   +
+     63					 (10b)
+     64	    013B  B4 01			     MOV     AH, 1	     ; CF=0 (бит был 0). AH = 1 (01b)
+     65	    013D  EB 03	90		     JMP     INSERT
+     66	    0140			 SET_10:
+     67	    0140  B4 02			     MOV     AH, 2	     ; CF=1 (бит был 1). AH = 2 (10b)
+     68
+     69	    0142			 INSERT:
+     70					     ; --- Вставляем AH (2 бита: 01b или 10b) в BL на позицию	DH  +
+     71					 ---
+     72	    0142  51			     PUSH    CX		     ; Сохраняем CX, так как CL нужен для SHL
+     73	    0143  8A CE			     MOV     CL, DH
+     74	    0145  D2 E4			     SHL     AH, CL	     ; Сдвигаем	2 бита (01 или 10) на нужную +
+     75					 позицию
+     76	    0147  59			     POP     CX		     ; Восстанавливаем CX
+     77	    0148  0A DC			     OR	     BL, AH	     ; Вставляем биты в байт-аккумулятор
+     78
+     79					     ; --- Обновляем счётчики ---
+     80	    014A  45			     INC     BP		     ; Следующий бит источника
+     81	    014B  83 FD	08		     CMP     BP, 8
+     82	    014E  0F 82	FEAE		     JB	     NO_SRC_NEXT
+**Error** lab_5.asm(77)	Undefined symbol: NO_SRC_NEXT
+     83					     ; Нужен следующий байт источника
+     84	    0152  46			     INC     SI
+     85	    0153  8A 04			     MOV     AL, [SI]	     ; Загружаем следующий байт
+     86	    0155  32 E4			     XOR     AH, AH	     ; Снова очищаем AH
+     87	    0157  33 ED			     XOR     BP, BP	     ; Сбрасываем счётчик битов		    +
+     88					 источника NO_SRC_NEXT:
+     89
+     90	    0159  80 C6	02		     ADD     DH, 2	     ; Мы вставили 2 бита
+     91	    015C  80 FE	08		     CMP     DH, 8
+     92	    015F  72 0A	90 90		     JB	     NO_DST_WRITE
+     93					     ; Байт	приёмника (BL)	заполнен, записываем его
+     94	    0163  64: 88 1D		     MOV     FS:[DI], BL
+     95	    0166  47			     INC     DI
+     96	    0167  32 DB			     XOR     BL, BL	     ; Очищаем аккумулятор результата
+     97	    0169  32 F6			     XOR     DH, DH	     ; Сбрасываем счётчик битов		    +
+     98					 приёмника
+     99	    016B			 NO_DST_WRITE:
+    100
+    101	    016B  49			     DEC     CX		     ; Уменьшаем счетчик обработанных   +
+    102					 бит
+    103	    016C  EB C0			     JMP     EXPAND_LOOP
+    104
+    105	    016E			 WRITE_LAST:
+    106					     ; Записываем последний неполный	байт, если он	    +
+    107					 есть
+    108	    016E  80 FE	00		     CMP     DH, 0
+    109	    0171  74 05	90 90		     JE	     DONE
+    110	    0175  64: 88 1D		     MOV     FS:[DI], BL     ; Записываем остаток
+    111
+    112	    0178			 DONE:
+    113	    0178  5D			     POP     BP		     ; Восстанавливаем BP
+Turbo Assembler	 Version 4.1	    10/24/25 09:02:45	    Page 3
 lab_5.asm
 
 
 
-    115	0071  5F			 POP	 DI
-    116	0072  5E			 POP	 SI
-    117	0073  5A			 POP	 DX
-    118	0074  59			 POP	 CX
-    119	0075  5B			 POP	 BX
-    120	0076  58			 POP	 AX
-    121	0077  C3			 RET
-    122	0078			     BIT_EXPAND_PROC ENDP
-    123
-    124				     END MAIN
-Turbo Assembler	 Version 4.1	    10/11/25 20:44:14	    Page 4
+    114	    0179  5F			     POP     DI
+    115	    017A  5E			     POP     SI
+    116	    017B  5A			     POP     DX
+    117	    017C  59			     POP     CX
+    118	    017D  5B			     POP     BX
+    119	    017E  58			     POP     AX
+    120	    017F  C3			     RET
+    121	    0180			 BIT_EXPAND_PROC ENDP
+    122
+    123					 ; -----------------------------
+    124					 ; Данные
+    125					 ; -----------------------------
+    126	    0180  15 00			 SOURCE_STR  DB	 15h, 0	     ; 00010101b.
+    127	    0182  03*(00)		 RESULT_STR  DB	 3 DUP(0)    ; Буфер для результата (5 бит	-> 10 бит+
+    128					 -> 2 байта)
+    129								     ; 3 байта - с запасом
+    130
+    131	    0185			 CSEG	 ENDS
+    132					 END start
+Turbo Assembler	 Version 4.1	    10/24/25 09:02:45	    Page 4
 Symbol Table
 
 
@@ -145,38 +154,32 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??DATE				  Text	 "10/11/25"
+??DATE				  Text	 "10/24/25"
 ??FILENAME			  Text	 "lab_5	  "
-??TIME				  Text	 "20:44:14"
+??TIME				  Text	 "09:02:45"
 ??VERSION			  Number 040A
-@32BIT				  Text	 0
-@CODE				  Text	 _TEXT
-@CODESIZE			  Text	 0
-@CPU				  Text	 0101H
-@CURSEG				  Text	 _TEXT
-@DATA				  Text	 DGROUP
-@DATASIZE			  Text	 0
+@CPU				  Text	 0F0FH
+@CURSEG				  Text	 CSEG
 @FILENAME			  Text	 LAB_5
-@INTERFACE			  Text	 000H
-@MODEL				  Text	 2
-@STACK				  Text	 DGROUP
 @WORDSIZE			  Text	 2
-ALL_DONE			  Near	 _TEXT:0071
-BIT_EXPAND_PROC			  Near	 _TEXT:0017
-BIT_ZERO			  Near	 _TEXT:0048
-EXPAND_LOOP			  Near	 _TEXT:002B
-INSERT_PAIR			  Near	 _TEXT:004A
-MAIN				  Near	 _TEXT:0000
-NO_DST_NEXT			  Near	 _TEXT:0069
-NO_SRC_NEXT			  Near	 _TEXT:005C
-RESULT_STR			  Byte	 DGROUP:0002
-SOURCE_STR			  Byte	 DGROUP:0000
-WRITE_FINAL_BYTE		  Near	 _TEXT:006C
+BIT_EXPAND_PROC			  Near	 CSEG:0119
+DONE				  Near	 CSEG:0178
+EXPAND_LOOP			  Near	 CSEG:012E
+INSERT				  Near	 CSEG:0142
+NO_DST_WRITE			  Near	 CSEG:016B
+RESULT_STR			  Byte	 CSEG:0182
+SET_10				  Near	 CSEG:0140
+SOURCE_STR			  Byte	 CSEG:0180
+START				  Near	 CSEG:0100
+WRITE_LAST			  Near	 CSEG:016E
 
 Groups & Segments		  Bit Size Align  Combine Class
 
-DGROUP				  Group
-  STACK				  16  0100 Para	  Stack	  STACK
-  _DATA				  16  0007 Word	  Public  DATA
-_TEXT				  16  0078 Word	  Public  CODE
+CSEG				  16  0185 Para	  none	  CODE
+Turbo Assembler	 Version 4.1	    10/24/25 09:02:45	    Page 5
+Error Summary
+
+
+
+**Error** lab_5.asm(77)	Undefined symbol: NO_SRC_NEXT
 
