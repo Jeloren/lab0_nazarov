@@ -1,38 +1,39 @@
-def bit_expand(source_bytes: bytes, bit_len: int) -> bytes:
+def bit_expand_proc(source_bytes, result_bytes, bit_length):
+    dest_abs_bit_pos = 0
 
-    input_bits = []
-    for i in range(bit_len):
-        byte_idx = i // 8
-        bit_idx = i % 8
-        bit = (source_bytes[byte_idx] >> bit_idx) & 1
-        input_bits.append(bit)
+    for i in range(bit_length):
+        src_byte_idx = i // 8
+        src_bit_pos = i % 8
 
-    output_bits = []
-    for bit in input_bits:
-        if bit == 0:
-            output_bits.extend([1, 0])
+        if src_byte_idx >= len(source_bytes):
+            source_bit = 0
         else:
-            output_bits.extend([0, 1])
+            source_byte = source_bytes[src_byte_idx]
+            source_bit = (source_byte >> src_bit_pos) & 1
 
+        if source_bit == 0:
+            expanded_bits = [0, 1]
+        else:
+            expanded_bits = [1, 0]
 
+        for bit_val in expanded_bits:
+            dest_byte_idx = dest_abs_bit_pos // 8
+            dest_bit_offset = dest_abs_bit_pos % 8
 
+            if dest_byte_idx < len(result_bytes):
+                if bit_val == 1:
+                    result_bytes[dest_byte_idx] |= (1 << dest_bit_offset)
+                else:
+                    result_bytes[dest_byte_idx] &= ~(1 << dest_bit_offset)
 
-    result_bytes = bytearray()
-    for i in range(0, len(output_bits), 8):
-        byte_val = 0
-        for j in range(8):
-            if i + j < len(output_bits):
-                if output_bits[i + j]:
-                    byte_val |= (1 << j)
-        result_bytes.append(byte_val)
+            dest_abs_bit_pos += 1
 
-    return bytes(result_bytes)
+    return result_bytes
 
+source_data = [0x15, 0x00]
+result_buffer = [0, 0, 0]
 
-if __name__ == "__main__":
-    source = bytes([0x15])
-    n = 5
-    result = bit_expand(source, n)
-    print("Исходные байты:", source.hex())
-    print("Результат (hex):", result.hex())
-    print("Ожидаемо: 66 02 →", "✅" if result[:2] == bytes([0x66, 0x02]) else "❌")
+final_result = bit_expand_proc(source_data, result_buffer, 5)
+
+print(f"Исходные данные: {[hex(b) for b in source_data]}, Длина: 5 бит")
+print(f"Полученный результат: {[hex(b) for b in final_result]}")

@@ -29,7 +29,7 @@ Code_Seg_Access  Equ  10011011b; Байт прав  доступа
     ; дескриптора сегмента кода 
 Data_Seg_Access  Equ  10010011b; Байт прав  доступа  
    ; дескриптора сегмента данных
-Non_Present_Access Equ 00010011b ; Байт прав доступа, P=0 (для варианта 5)
+Non_Present_Access Equ 00010011b ; Байт прав доступа, P=0
 Disable_Bit20 Equ  11011101b; Код команды 8042 
    ; для закрывания линии A20 
 Enable_Bit20 Equ  11011111b; Код команды 8042 
@@ -86,11 +86,10 @@ Gdt label word
  GdtB800 Gdt_Descriptor<1000h,8000h,0bh,\ 
  data_seg_access> 
 
-; --- Вставка для варианта 5 ---
 ; Дескриптор для проверки особой ситуации 11
 Np_Seg EQU $-gdt ; Селектор неприсутствующего сегмента
 Gdt_NP Gdt_Descriptor<1000h,0,0,Non_Present_Access,> 
-; --- Конец вставки ---
+
 
 Gdt_Leng EQU $-gdt      ; Длина таблицы GDT 
  
@@ -122,9 +121,8 @@ Int39  Idt_Descriptor<offset int10_proc,cs_code,0,\
 Mess      db  'Protected Mode$' 
 Len     dw  14d 
 Gate_Failure    db "Error open A20$"
-; --- Вставка для варианта 5 ---
+
 Ex11_Mess   db  'Exception 11: Segment Not Present!$'
-; --- Конец вставки ---
 
 Main:    FillDescr  cs,Gdt,Gdt1; Формирование 
 ; 32-разрядного адреса из CS:GDT и запись его 
@@ -132,6 +130,7 @@ Main:    FillDescr  cs,Gdt,Gdt1; Формирование
     FillDescr  cs,0,gdt2; Дескриптор Cs_Code 
 ; указывает на CSEG как на кодовый сегмент. 
     FillDescr  cs,0,gdt3; Дескриптор Cs_Data 
+    FillDescr cs,0,Gdt_NP;
 ; указывает на CSEG как на сегмент данных 
        FillDescr  cs,Idt,Idt_Pointer; Дескриптор 
 ; Idt_Pointer указывает на IDT. 
@@ -171,6 +170,7 @@ Protect:   mov    ax,Cs_Data
     mov   ds,ax      ; содержат  селектор 
     mov   es,ax      ; сегмента Cs_Data 
     call  My_Proc; Вызов рабочей процедуры 
+    metka:
     cli 
     mov   eax,cr0       ; Переходим в реальный 
     and   eax,0FFFEh  ; режим, сбрасывая бит 0 
@@ -203,44 +203,13 @@ ex7_proc:  iret
 ex8_proc:  iret 
 ex9_proc:  iret 
 ex10_proc: iret 
-
-; --- Модификация для варианта 5 ---
 ex11_proc:
-    pusha       ; Сохранить все регистры
-    push ds
-    push es
+    lea  bx,Ex11_Mess     ; Адрес сообщения 
+    mov   dx,200Ch     ; Координаты вывода 
+    int   39d     ; Вывод строки на экран 
+    jmp metka
 
-    mov ax, Cs_Data   ; Установить DS на наш сегмент данных
-    mov ds, ax
-
-    push Video_Desc ; Установить ES на видеопамять
-    pop es
-
-    ; Вывод сообщения в строку 10, колонку 10
-    xor di, di
-    mov ax, 10      ; Строка 10
-    imul ax, 160d   ; * 160 байт в строке
-    mov di, ax
-    add di, 20      ; + (10 * 2) = колонка 10
-
-    lea bx, Ex11_Mess ; Адрес сообщения
-m11:
-    mov al, [bx]
-    cmp al, '$'     ; Конец строки?
-    jz Ex11_Done
-    mov ah, 0Ch     ; Ярко-красный на черном
-    stosw           ; Записать символ и атрибут
-    inc bx
-    jmp short m11
-
-Ex11_Done:
-    hlt             ; Остановить процессор. iret вызовет бесконечный цикл.
-    
-    pop es
-    pop ds
-    popa
     iret
-; --- Конец модификации ---
 
 ex12_proc: iret 
 ex13_proc: iret 
@@ -345,12 +314,11 @@ MY_PROC    PROC
     mov   dx,200Bh     ; Координаты вывода 
     int   39d     ; Вывод строки на экран 
 
-    ; --- Вставка для варианта 5 ---
     ; Попытка доступа к неприсутствующему сегменту
     ; для генерации особой ситуации 11
     mov ax, Np_Seg  ; Загружаем селектор неприсутствующего сегмента
-    mov es, ax      ; Эта команда вызовет Exception 11
-    ; --- Конец вставки ---
+    mov fs, ax      ; Эта команда вызовет Exception 11
+
 
     pop    es 
     popa 
