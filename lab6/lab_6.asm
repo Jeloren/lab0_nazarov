@@ -208,7 +208,6 @@ ex11_proc:
     mov   dx,200Ch     ; Координаты вывода 
     int   39d     ; Вывод строки на экран 
     jmp metka
-
     iret
 
 ex12_proc: iret 
