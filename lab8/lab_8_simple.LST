@@ -1,0 +1,90 @@
+Turbo Assembler	 Version 5.0	    11-18-25 22:42:18	    Page 1
+lab_8_simple.asm
+
+
+
+      1					 ; lab_8_simple.asm
+      2					 ; Упрощенная	версия для отладки
+      3
+      4					 include lab_8.inc
+1     5					 ; lab_8.inc
+1     6					 ; Имена используемых функций из kernel32.dll
+1     7
+1     8					 includelib import32.lib ; Используем	kernel32.lib для MoveFileA и ExitProcess
+1     9
+1    10					 extrn ExitProcess:near
+1    11					 extrn GetCommandLineA:near
+1    12					 extrn MoveFileA:near	    ; Функция, необходимая для варианта+
+     13					 10
+1    14					 extrn GetLastError:near    ; Добавлено для	отладки ошибок
+     15
+     16					 .386
+     17	00000000			 .model	FLAT, STDCALL
+     18
+     19	00000000			 .DATA
+     20	00000000  74 65	73 74 2E 74 78+	     SourcePath	DB "test.txt", 0
+     21		  74 00
+     22	00000009  6D 6F	76 65 64 5F 66+	     NewPath	DB "moved_file.txt", 0
+     23		  69 6C	65 2E 74 78 74+
+     24		  00
+     25
+     26	00000018			 .CODE
+     27	00000000			 START:
+     28					     ; Простой тест с фиксированными путями
+     29	00000000  68 00000009r		     PUSH OFFSET NewPath
+     30	00000005  68 00000000r		     PUSH OFFSET SourcePath
+     31	0000000A  E8 00000000e		     CALL MoveFileA
+     32
+     33	0000000F  83 F8	00		     CMP EAX, 0
+     34	00000012  74 0B	90 90 90 90	     JE	END_FAIL
+     35
+     36					     ; Успех
+     37	00000018  6A 00			     PUSH 0
+     38	0000001A  E8 00000000e		     CALL ExitProcess
+     39
+     40	0000001F			 END_FAIL:
+     41					     ; Ошибка
+     42	0000001F  6A 01			     PUSH 1
+     43	00000021  E8 00000000e		     CALL ExitProcess
+     44
+     45					 END START
+Turbo Assembler	 Version 5.0	    11-18-25 22:42:18	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??date				  Text	 "11-18-25"
+??filename			  Text	 "lab_8_si"
+??time				  Text	 "22:42:18"
+??version			  Number 0500
+@32Bit				  Text	 1
+@CodeSize			  Text	 0
+@Cpu				  Text	 0F0FH
+@DataSize			  Text	 0
+@FileName			  Text	 lab_8_si
+@Interface			  Text	 003h
+@Model				  Text	 1
+@WordSize			  Text	 4
+@code				  Text	 FLAT
+@curseg				  Text	 _TEXT
+@data				  Text	 FLAT
+@stack				  Text	 FLAT
+END_FAIL			  Near32 FLAT:001F
+ExitProcess			  Near16 ----:---- Extern
+GetCommandLineA			  Near16 ----:---- Extern
+GetLastError			  Near16 ----:---- Extern
+MoveFileA			  Near16 ----:---- Extern
+NewPath				  Byte	 FLAT:0009
+START				  Near32 FLAT:0000
+SourcePath			  Byte	 FLAT:0000
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  _DATA				  32  0018 Dword  Public  DATA
+FLAT				  Group
+_TEXT				  32  0026 Dword  Public  CODE
+
