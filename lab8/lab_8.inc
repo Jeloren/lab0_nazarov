@@ -1,9 +1,7 @@
 ; lab_8.inc
-; Имена используемых функций из kernel32.dll
-
-includelib import32.lib ; Используем kernel32.lib для MoveFileA и ExitProcess
+includelib import32.lib
 
 extrn ExitProcess:near
 extrn GetCommandLineA:near
-extrn MoveFileA:near       ; Функция, необходимая для варианта 10
-extrn GetLastError:near    ; Добавлено для отладки ошибок
+extrn MoveFileA:near
+extrn GetLastError:near  ; Убрали комментарий

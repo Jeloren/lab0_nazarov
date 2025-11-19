@@ -191,11 +191,11 @@ End_Copy_3:
     CALL ExitProcess
 
 END_FAIL:
-    ; --- Завершение с ошибкой ---
-    ; Можно добавить вызов GetLastError для отладки
-    ; CALL GetLastError
-    ; Теперь EAX содержит код ошибки Windows
-    PUSH 1 ; Код ошибки 1
+    ; Получаем код ошибки Windows (почему MoveFile не сработал)
+    CALL GetLastError 
+    ; Код ошибки теперь в EAX. 
+    ; Передаем его в ExitProcess, чтобы батник его увидел.
+    PUSH EAX 
     CALL ExitProcess
     
 END START
