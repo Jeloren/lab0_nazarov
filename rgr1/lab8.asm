@@ -1,5 +1,3 @@
-; lab8.asm - Перемещение файла в Linux (x64)
-; Компиляция:
 ; nasm -f elf64 lab8.asm -o lab8.o
 ; ld lab8.o -o lab8
 

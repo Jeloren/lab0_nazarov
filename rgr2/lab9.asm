@@ -1,5 +1,3 @@
-; lab9_fixed.asm - Управление клавиатурой через /dev/console
-; Сборка:
 ; nasm -f elf64 lab9_fixed.asm -o lab9.o
 ; ld lab9.o -o lab9
 ; Запуск: sudo ./lab9
@@ -48,7 +46,7 @@ _start:
     ; --- 4. Вызов ioctl KDKBDREP (0x4B52) ---
     ; ioctl(fd, cmd, arg)
     mov rax, 16         ; sys_ioctl
-    mov rdi, r15        ; ИСПОЛЬЗУЕМ ДЕСКРИПТОР /dev/console (а не 0)
+    mov rdi, r15        ; ИСПОЛЬЗУЕМ ДЕСКРИПТОР /dev/console
     mov rsi, 0x4B52     ; KDKBDREP
     mov rdx, kb_struct
     syscall
@@ -72,7 +70,6 @@ exit_ok:
     xor rdi, rdi
     syscall
 
-; --- Процедуры (те же, что и раньше) ---
 print_string:
     push rax
     push rdi
