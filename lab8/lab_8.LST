@@ -1,240 +1,333 @@
-Turbo Assembler	 Version 5.0	    11-19-25 15:20:29	    Page 1
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 1
 lab_8.asm
 
 
 
-      1					 ; lab_8.asm
-      2					 ; Лабораторная работа №8, Вариант 10: Перемещение    +
-      3					 файла
-      4					 ; ИСПРАВЛЕННЫЙ ПАРСИНГ ДЛЯ АРГУМЕНТОВ В КАВЫЧКАХ
-      5
-      6					 include lab_8.inc
-1     7					 ; lab_8.inc
-1     8					 includelib import32.lib
-1     9
-1    10					 extrn ExitProcess:near
-1    11					 extrn GetCommandLineA:near
-1    12					 extrn MoveFileA:near
-1    13					 extrn GetLastError:near  ; Убрали комментарий
-     14
-     15					 .386
-     16	00000000			 .model	FLAT, STDCALL
-     17
-     18					 ; Константы для внутреннего использования
-     19		  =0001			 TRUE EQU 1
-     20		  =0000			 FALSE EQU 0
-     21		  =0022			 QUOTE EQU 22H ; ASCII-код для символа '"'
-     22		  =0020			 SPACE EQU 20H ; ASCII-код для символа ' '
-     23		  =0000			 NULL EQU 0
-     24
-     25	00000000			 .DATA
-     26					     ; Буферы для хранения аргументов командной	    +
-     27					 строки (максимум	256 символов)
-     28	00000000  0100*(00)		     SourcePath	DB 256 DUP (0)
-     29	00000100  0100*(00)		     NewPath	DB 256 DUP (0)
+      1					 include lab_8.inc
+1     2					 ; lab_8.inc
+1     3					 includelib import32.lib
+1     4
+1     5					 extrn ExitProcess:near
+1     6					 extrn GetCommandLineA:near
+1     7					 extrn MoveFileExA:near
+1     8					 extrn GetLastError:near
+1     9					 ; --- НОВЫЕ ФУНКЦИИ ДЛЯ	ВЫВОДА ---
+1    10					 extrn GetStdHandle:near
+1    11					 extrn WriteConsoleA:near
+     12
+     13					 .386
+     14	00000000			 .model	FLAT, STDCALL
+     15
+     16					 ; Константы
+     17		  =0001			 TRUE  EQU 1
+     18		  =0000			 FALSE EQU 0
+     19		  =0022			 QUOTE EQU 22H ; "
+     20		  =0020			 SPACE EQU 20H ; Пробел
+     21		  =0009			 TAB   EQU 09H ; Табуляция
+     22		  =0000			 NULL  EQU 0
+     23		  =0001			 MOVEFILE_REPLACE_EXISTING EQU 1
+     24		  =-000B		 STD_OUTPUT_HANDLE EQU -11  ; Дескриптор вывода	консоли
+     25
+     26	00000000			 .DATA
+     27	00000000  0104*(00)		     SourcePath	DB 260 DUP (0)
+     28	00000104  0104*(00)		     NewPath	DB 260 DUP (0)
+     29	00000208  0A*(00)		     FlagBuf	DB 10  DUP (0)
      30
-     31	00000200			 .CODE
-     32	00000000			 START:
-     33
-     34					     ; --- 1. Извлечение аргументов	командной строки	---
-     35
-     36	00000000  E8 00000000e		     CALL GetCommandLineA	 ; EAX = указатель на командную	    +
-     37					 строку
-     38	00000005  8B F0			     MOV ESI, EAX		 ; ESI - наш	текущий указатель
-     39
-     40					     ; ==========================================================
-     41					     ; Пропускаем 1-й аргумент (Имя программы)
-     42					     ; ==========================================================
-     43	00000007  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
-     44	0000000A  75 20	90 90 90 90	     JNE Skip_Prog_No_Quote
-     45
-     46					     ; Случай: имя программы в кавычках
-     47	00000010  46			     INC ESI ; Пропускаем открывающую кавычку
-     48	00000011			 Skip_Prog_Quote_Loop:
-     49	00000011  80 3E	00		     CMP BYTE PTR [ESI], NULL
-     50	00000014  74 2B	90 90 90 90	     JE	Skip_Prog_End
-     51	0000001A  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
-     52	0000001D  74 07	90 90 90 90	     JE	Skip_Prog_Quote_End
-     53	00000023  46			     INC ESI
-     54	00000024  EB EB			     JMP Skip_Prog_Quote_Loop
-     55	00000026			 Skip_Prog_Quote_End:
-     56	00000026  46			     INC ESI ; Пропускаем закрывающую кавычку
-     57	00000027  EB 18	90 90 90	     JMP Skip_Spaces_1
-Turbo Assembler	 Version 5.0	    11-19-25 15:20:29	    Page 2
+     31					     ; --- Переменные	для консоли ---
+     32	00000212  ????????		     hStdOut	  DD ?		    ; Хранитель дескриптора		    +
+     33					 консоли
+     34	00000216  ????????		     BytesWritten DD ?		    ; Сюда WriteConsole запишет сколько   +
+     35					 байт вывела
+     36
+     37					     ; --- Сообщения ---
+     38	0000021A  4F 4B	3A 20 46 69 6C+	     MsgSuccess	  DB "OK: File moved successfully.", 0Dh, 0Ah, 0
+     39		  65 20	6D 6F 76 65 64+
+     40		  20 73	75 63 63 65 73+
+     41		  73 66	75 6C 6C 79 2E+
+     42		  0D 0A	00
+     43	00000239  46 41	49 4C 3A 20 53+	     MsgSrcError  DB "FAIL: Source file	not found.", 0Dh, 0Ah, 0
+     44		  6F 75	72 63 65 20 66+
+     45		  69 6C	65 20 6E 6F 74+
+     46		  20 66	6F 75 6E 64 2E+
+     47		  0D 0A	00
+     48	00000258  46 41	49 4C 3A 20 54+	     MsgExistErr  DB "FAIL: Target file	exists (use flag 1 to overwrite).", 0Dh, 0Ah, 0
+     49		  61 72	67 65 74 20 66+
+     50		  69 6C	65 20 65 78 69+
+     51		  73 74	73 20 28 75 73+
+     52		  65 20	66 6C 61 67 20+
+     53		  31 20	74 6F 20 6F 76+
+     54		  65 72	77 72 69 74 65+
+     55		  29 2E	0D 0A 00
+     56	0000028E  46 41	49 4C 3A 20 49+	     MsgPathErr	  DB "FAIL: Invalid paths or access denied.", 0Dh, 0Ah,	0
+     57		  6E 76	61 6C 69 64 20+
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 2
 lab_8.asm
 
 
 
-     58
-     59	0000002C			 Skip_Prog_No_Quote:
-     60					     ; Ищем	первый пробел или конец строки
-     61	0000002C			 Skip_Prog_NoQuote_Loop:
-     62	0000002C  80 3E	00		     CMP BYTE PTR [ESI], NULL
-     63	0000002F  74 10	90 90 90 90	     JE	Skip_Prog_End
-     64	00000035  80 3E	20		     CMP BYTE PTR [ESI], SPACE
-     65	00000038  74 07	90 90 90 90	     JE	Skip_Prog_NoQuote_End
-     66	0000003E  46			     INC ESI
-     67	0000003F  EB EB			     JMP Skip_Prog_NoQuote_Loop
-     68	00000041			 Skip_Prog_NoQuote_End:
-     69
-     70	00000041			 Skip_Prog_End:
-     71
-     72	00000041			 Skip_Spaces_1:
-     73					     ; Пропускаем пробелы после 1-го аргумента
-     74	00000041			 Skip_Spaces_1_Loop:
-     75	00000041  80 3E	20		     CMP BYTE PTR [ESI], SPACE
-     76	00000044  75 07	90 90 90 90	     JNE Skip_Spaces_1_End
-     77	0000004A  46			     INC ESI
-     78	0000004B  EB F4			     JMP Skip_Spaces_1_Loop
-     79	0000004D			 Skip_Spaces_1_End:
-     80
-     81					     ; ==========================================================
-     82					     ; Копируем	2-й аргумент (SourcePath)
-     83					     ; ==========================================================
-     84	0000004D  BF 00000000r		     MOV EDI, OFFSET SourcePath
-     85
-     86					     ; Проверяем, начинается	ли аргумент с кавычки
-     87	00000052  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
-     88	00000055  75 30	90 90 90 90	     JNE Copy_Arg_2_No_Quote
-     89
-     90					     ; Случай с кавычками: копируем до закрывающей	    +
-     91					 кавычки
-     92	0000005B  46			     INC ESI ; Пропускаем открывающую кавычку
-     93	0000005C			 Copy_Arg_2_Quote_Loop:
-     94	0000005C  80 3E	00		     CMP BYTE PTR [ESI], NULL
-     95	0000005F  74 46	90 90 90 90	     JE	End_Copy_2
-     96	00000065  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
-     97	00000068  74 17	90 90 90 90	     JE	Copy_Arg_2_Quote_End
-     98	0000006E  8A 06			     MOV AL, [ESI]
-     99	00000070  88 07			     MOV [EDI],	AL
-    100	00000072  46			     INC ESI
-    101	00000073  47			     INC EDI
-    102	00000074  81 FF	000000FFr	     CMP EDI, OFFSET SourcePath	+ 255
-    103	0000007A  72 E0			     JB	Copy_Arg_2_Quote_Loop
-    104	0000007C  EB 29	90 90 90	     JMP End_Copy_2  ; Буфер заполнен
-    105	00000081			 Copy_Arg_2_Quote_End:
-    106	00000081  46			     INC ESI ; Пропускаем закрывающую кавычку
-    107	00000082  EB 23	90 90 90	     JMP End_Copy_2
-    108
-    109	00000087			 Copy_Arg_2_No_Quote:
-    110					     ; Случай без кавычек: копируем до пробела	или	    +
-    111					 конца строки
-    112	00000087			 Copy_Arg_2_NoQuote_Loop:
-    113	00000087  80 3E	00		     CMP BYTE PTR [ESI], NULL
-    114	0000008A  74 1B	90 90 90 90	     JE	End_Copy_2
-Turbo Assembler	 Version 5.0	    11-19-25 15:20:29	    Page 3
+     58		  70 61	74 68 73 20 6F+
+     59		  72 20	61 63 63 65 73+
+     60		  73 20	64 65 6E 69 65+
+     61		  64 2E	0D 0A 00
+     62	000002B6  46 41	49 4C 3A 20 55+	     MsgUnknown	  DB "FAIL: Unknown system error.", 0Dh, 0Ah, 0
+     63		  6E 6B	6E 6F 77 6E 20+
+     64		  73 79	73 74 65 6D 20+
+     65		  65 72	72 6F 72 2E 0D+
+     66		  0A 00
+     67
+     68	000002D4			 .CODE
+     69	00000000			 START:
+     70					     ; --- 0. Инициализация консоли	---
+     71	00000000  6A F5			     PUSH STD_OUTPUT_HANDLE
+     72	00000002  E8 00000000e		     CALL GetStdHandle
+     73	00000007  A3 00000212r		     MOV hStdOut, EAX	     ; Сохраняем дескриптор,	чтобы	    +
+     74					 использовать при выводе
+     75
+     76					     ; --- 1. Получение командной строки ---
+     77	0000000C  E8 00000000e		     CALL GetCommandLineA
+     78	00000011  8B F0			     MOV ESI, EAX
+     79
+     80					     ; =============================================================
+     81					     ; ПАРСИНГ АРГУМЕНТОВ (Ваш код без изменений	    +
+     82					 логики)
+     83					     ; =============================================================
+     84	00000013  E8 0000018F		     CALL Skip_Whitespace
+     85	00000018  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
+     86	0000001B  75 20	90 90 90 90	     JNE Skip_Prog_NoQuote
+     87	00000021  46			     INC ESI
+     88	00000022			 Skip_Prog_Quote_Loop:
+     89	00000022  8A 06			     MOV AL, [ESI]
+     90	00000024  3C 00			     CMP AL, NULL
+     91	00000026  74 7A	90 90 90 90	     JE	 Parse_Args_Done
+     92	0000002C  3C 22			     CMP AL, QUOTE
+     93	0000002E  74 07	90 90 90 90	     JE	 Skip_Prog_Quote_End
+     94	00000034  46			     INC ESI
+     95	00000035  EB EB			     JMP Skip_Prog_Quote_Loop
+     96	00000037			 Skip_Prog_Quote_End:
+     97	00000037  46			     INC ESI
+     98	00000038  EB 20	90 90 90	     JMP Parse_Arg_1
+     99	0000003D			 Skip_Prog_NoQuote:
+    100	0000003D  8A 06			     MOV AL, [ESI]
+    101	0000003F  3C 00			     CMP AL, NULL
+    102	00000041  74 5F	90 90 90 90	     JE	 Parse_Args_Done
+    103	00000047  3C 20			     CMP AL, SPACE
+    104	00000049  74 0F	90 90 90 90	     JE	 Parse_Arg_1
+    105	0000004F  3C 09			     CMP AL, TAB
+    106	00000051  74 07	90 90 90 90	     JE	 Parse_Arg_1
+    107	00000057  46			     INC ESI
+    108	00000058  EB E3			     JMP Skip_Prog_NoQuote
+    109
+    110	0000005A			 Parse_Arg_1:
+    111	0000005A  E8 00000148		     CALL Skip_Whitespace
+    112	0000005F  80 3E	00		     CMP BYTE PTR [ESI], NULL
+    113	00000062  74 3E	90 90 90 90	     JE	Parse_Args_Done
+    114	00000068  BF 00000000r		     MOV EDI, OFFSET SourcePath
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 3
 lab_8.asm
 
 
 
-    115	00000090  80 3E	20		     CMP BYTE PTR [ESI], SPACE
-    116	00000093  74 12	90 90 90 90	     JE	End_Copy_2
-    117	00000099  8A 06			     MOV AL, [ESI]
-    118	0000009B  88 07			     MOV [EDI],	AL
-    119	0000009D  46			     INC ESI
-    120	0000009E  47			     INC EDI
-    121	0000009F  81 FF	000000FFr	     CMP EDI, OFFSET SourcePath	+ 255
-    122	000000A5  72 E0			     JB	Copy_Arg_2_NoQuote_Loop
+    115	0000006D  E8 0000014B		     CALL Parse_Token
+    116
+    117	00000072			 Parse_Arg_2:
+    118	00000072  E8 00000130		     CALL Skip_Whitespace
+    119	00000077  80 3E	00		     CMP BYTE PTR [ESI], NULL
+    120	0000007A  74 26	90 90 90 90	     JE	Parse_Args_Done
+    121	00000080  BF 00000104r		     MOV EDI, OFFSET NewPath
+    122	00000085  E8 00000133		     CALL Parse_Token
     123
-    124	000000A7			 End_Copy_2:
-    125	000000A7  C6 07	00		     MOV BYTE PTR [EDI], NULL
-    126
-    127					     ; Пропускаем пробелы после 2-го аргумента
-    128	000000AA			 Skip_Spaces_2_Loop:
-    129	000000AA  80 3E	20		     CMP BYTE PTR [ESI], SPACE
-    130	000000AD  75 07	90 90 90 90	     JNE Skip_Spaces_2_End
-    131	000000B3  46			     INC ESI
-    132	000000B4  EB F4			     JMP Skip_Spaces_2_Loop
-    133	000000B6			 Skip_Spaces_2_End:
-    134
-    135					     ; ==========================================================
-    136					     ; Копируем	3-й аргумент (NewPath)
-    137					     ; ==========================================================
-    138	000000B6  BF 00000100r		     MOV EDI, OFFSET NewPath
-    139
-    140					     ; Проверяем, начинается	ли аргумент с кавычки
-    141	000000BB  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
-    142	000000BE  75 30	90 90 90 90	     JNE Copy_Arg_3_No_Quote
-    143
-    144					     ; Случай с кавычками: копируем до закрывающей	    +
-    145					 кавычки
-    146	000000C4  46			     INC ESI ; Пропускаем открывающую кавычку
-    147	000000C5			 Copy_Arg_3_Quote_Loop:
-    148	000000C5  80 3E	00		     CMP BYTE PTR [ESI], NULL
-    149	000000C8  74 46	90 90 90 90	     JE	End_Copy_3
-    150	000000CE  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
-    151	000000D1  74 17	90 90 90 90	     JE	Copy_Arg_3_Quote_End
-    152	000000D7  8A 06			     MOV AL, [ESI]
-    153	000000D9  88 07			     MOV [EDI],	AL
-    154	000000DB  46			     INC ESI
-    155	000000DC  47			     INC EDI
-    156	000000DD  81 FF	000001FFr	     CMP EDI, OFFSET NewPath + 255
-    157	000000E3  72 E0			     JB	Copy_Arg_3_Quote_Loop
-    158	000000E5  EB 29	90 90 90	     JMP End_Copy_3  ; Буфер заполнен
-    159	000000EA			 Copy_Arg_3_Quote_End:
-    160	000000EA  46			     INC ESI ; Пропускаем закрывающую кавычку
-    161	000000EB  EB 23	90 90 90	     JMP End_Copy_3
+    124	0000008A			 Parse_Arg_3:
+    125	0000008A  E8 00000118		     CALL Skip_Whitespace
+    126	0000008F  80 3E	00		     CMP BYTE PTR [ESI], NULL
+    127	00000092  74 0E	90 90 90 90	     JE	Parse_Args_Done
+    128	00000098  BF 00000208r		     MOV EDI, OFFSET FlagBuf
+    129	0000009D  E8 0000011B		     CALL Parse_Token
+    130
+    131	000000A2			 Parse_Args_Done:
+    132
+    133					     ; --- 2. ПРОВЕРКА ПУТЕЙ ---
+    134	000000A2  80 3D	00000000r 00	     CMP BYTE PTR [SourcePath],	0
+    135	000000A9  74 52	90 90 90 90	     JE	Handle_Path_Error
+    136	000000AF  80 3D	00000104r 00	     CMP BYTE PTR [NewPath], 0
+    137	000000B6  74 45	90 90 90 90	     JE	Handle_Path_Error
+    138
+    139					     ; --- 3. ЛОГИКА ФЛАГА ---
+    140	000000BC  BA 00000000		     MOV EDX, 0
+    141	000000C1  A0 00000208r		     MOV AL, [FlagBuf]
+    142	000000C6  3C 31			     CMP AL, '1'
+    143	000000C8  75 09	90 90 90 90	     JNE Do_Move
+    144	000000CE  BA 00000001		     MOV EDX, MOVEFILE_REPLACE_EXISTING
+    145
+    146	000000D3			 Do_Move:
+    147	000000D3  52			     PUSH EDX
+    148	000000D4  68 00000104r		     PUSH OFFSET NewPath
+    149	000000D9  68 00000000r		     PUSH OFFSET SourcePath
+    150	000000DE  E8 00000000e		     CALL MoveFileExA
+    151
+    152	000000E3  83 F8	00		     CMP EAX, 0
+    153	000000E6  74 26	90 90 90 90	     JE	Handle_Move_Error    ; Если	0 - ошибка, идем разбираться   +
+    154					 какая
+    155
+    156					     ; --- УСПЕХ ---
+    157	000000EC  B8 0000021Ar		     MOV EAX, OFFSET MsgSuccess
+    158	000000F1  E8 00000086		     CALL PrintStr
+    159
+    160	000000F6  6A 00			     PUSH 0
+    161	000000F8  E8 00000000e		     CALL ExitProcess
     162
-    163	000000F0			 Copy_Arg_3_No_Quote:
-    164					     ; Случай без кавычек: копируем до пробела	или	    +
-    165					 конца строки
-    166	000000F0			 Copy_Arg_3_NoQuote_Loop:
-    167	000000F0  80 3E	00		     CMP BYTE PTR [ESI], NULL
-    168	000000F3  74 1B	90 90 90 90	     JE	End_Copy_3
-    169	000000F9  80 3E	20		     CMP BYTE PTR [ESI], SPACE
-    170	000000FC  74 12	90 90 90 90	     JE	End_Copy_3
-    171	00000102  8A 06			     MOV AL, [ESI]
-Turbo Assembler	 Version 5.0	    11-19-25 15:20:29	    Page 4
+    163					 ; =============================================================
+    164					 ; ОБРАБОТКА ОШИБОК
+    165					 ; =============================================================
+    166
+    167	000000FD			 Handle_Path_Error:
+    168	000000FD  B8 0000028Er		     MOV EAX, OFFSET MsgPathErr
+    169	00000102  E8 00000075		     CALL PrintStr
+    170	00000107  6A 01			     PUSH 1
+    171	00000109  E8 00000000e		     CALL ExitProcess
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 4
 lab_8.asm
 
 
 
-    172	00000104  88 07			     MOV [EDI],	AL
-    173	00000106  46			     INC ESI
-    174	00000107  47			     INC EDI
-    175	00000108  81 FF	000001FFr	     CMP EDI, OFFSET NewPath + 255
-    176	0000010E  72 E0			     JB	Copy_Arg_3_NoQuote_Loop
-    177
-    178	00000110			 End_Copy_3:
-    179	00000110  C6 07	00		     MOV BYTE PTR [EDI], NULL
-    180
-    181					     ; --- 2. Проверка аргументов и Вызов MoveFileA ---
-    182
-    183					     ; Проверка, что	2-й аргумент (SourcePath) не	пуст
-    184	00000113  80 3D	00000000r 00	     CMP BYTE PTR [OFFSET SourcePath], NULL
-    185	0000011A  74 30	90 90 90 90	     JE	END_FAIL
-    186
-    187					     ; Проверка, что	3-й аргумент (NewPath)	не пуст
-    188	00000120  80 3D	00000100r 00	     CMP BYTE PTR [OFFSET NewPath], NULL
-    189	00000127  74 23	90 90 90 90	     JE	END_FAIL
-    190
-    191					     ; BOOL MoveFileA(
-    192					     ;	 LPCSTR	lpExistingFileName, ; SourcePath
-    193					     ;	 LPCSTR	lpNewFileName	    ; NewPath
-    194					     ; );
-    195	0000012D  68 00000100r		     PUSH OFFSET NewPath	 ; 2. Новый путь/имя
-    196	00000132  68 00000000r		     PUSH OFFSET SourcePath	 ; 1. Исходный путь/имя
-    197	00000137  E8 00000000e		     CALL MoveFileA
-    198
-    199					     ; EAX содержит результат:	TRUE (не ноль) или FALSE (ноль)
-    200	0000013C  83 F8	00		     CMP EAX, FALSE
-    201	0000013F  74 0B	90 90 90 90	     JE	END_FAIL ; Переход, если MoveFileA вернула FALSE (ошибка)
-    202
-    203					     ; --- Успешное завершение ---
-    204	00000145  6A 00			     PUSH 0 ; Код успешного	завершения 0
-    205	00000147  E8 00000000e		     CALL ExitProcess
+    172
+    173	0000010E			 Handle_Move_Error:
+    174	0000010E  E8 00000000e		     CALL GetLastError	 ; Код ошибки в EAX
+    175
+    176					     ; Проверка: Файл не найден (Код 2)
+    177	00000113  83 F8	02		     CMP EAX, 2
+    178	00000116  74 30	90 90 90 90	     JE	Err_Source_Missing
+    179
+    180					     ; Проверка: Путь не найден (Код 3)
+    181	0000011C  83 F8	03		     CMP EAX, 3
+    182	0000011F  74 27	90 90 90 90	     JE	Err_Source_Missing
+    183
+    184					     ; Проверка: Файл существует (Код 183 = 0B7h)
+    185	00000125  3D 000000B7		     CMP EAX, 0B7h
+    186	0000012A  74 2B	90 90 90 90	     JE	Err_Target_Exists
+    187
+    188					     ; Проверка: Отказано в доступе (Код 5)
+    189	00000130  83 F8	05		     CMP EAX, 5
+    190	00000133  74 31	90 90 90 90	     JE	Err_Path_Access
+    191
+    192					     ; Иначе неизвестная ошибка
+    193	00000139  B8 000002B6r		     MOV EAX, OFFSET MsgUnknown
+    194	0000013E  E8 00000039		     CALL PrintStr
+    195	00000143  EB 30	90 90 90	     JMP Final_Err_Exit
+    196
+    197	00000148			 Err_Source_Missing:
+    198	00000148  B8 00000239r		     MOV EAX, OFFSET MsgSrcError
+    199	0000014D  E8 0000002A		     CALL PrintStr
+    200	00000152  EB 21	90 90 90	     JMP Final_Err_Exit
+    201
+    202	00000157			 Err_Target_Exists:
+    203	00000157  B8 00000258r		     MOV EAX, OFFSET MsgExistErr
+    204	0000015C  E8 0000001B		     CALL PrintStr
+    205	00000161  EB 12	90 90 90	     JMP Final_Err_Exit
     206
-    207	0000014C			 END_FAIL:
-    208					     ; Получаем	код ошибки Windows (почему MoveFile не		    +
-    209					 сработал)
-    210	0000014C  E8 00000000e		     CALL GetLastError
-    211					     ; Код ошибки теперь	в EAX.
-    212					     ; Передаем	его в ExitProcess, чтобы батник его увидел.
-    213	00000151  50			     PUSH EAX
-    214	00000152  E8 00000000e		     CALL ExitProcess
+    207	00000166			 Err_Path_Access:
+    208	00000166  B8 0000028Er		     MOV EAX, OFFSET MsgPathErr
+    209	0000016B  E8 0000000C		     CALL PrintStr
+    210	00000170  EB 03	90 90 90	     JMP Final_Err_Exit
+    211
+    212	00000175			 Final_Err_Exit:
+    213	00000175  6A 01			     PUSH 1
+    214	00000177  E8 00000000e		     CALL ExitProcess
     215
-    216					 END START
-Turbo Assembler	 Version 5.0	    11-19-25 15:20:29	    Page 5
+    216
+    217					 ; =============================================================
+    218					 ; ПРОЦЕДУРЫ ПОМОЩНИКИ
+    219					 ; =============================================================
+    220
+    221					 ; --- Процедура вывода строки на экран ---
+    222					 ; Вход: EAX - адрес строки (заканчивается нулем)
+    223	0000017C			 PrintStr PROC
+    224	0000017C  57			     PUSH EDI
+    225	0000017D  56			     PUSH ESI
+    226	0000017E  51			     PUSH ECX
+    227
+    228	0000017F  8B F0			     MOV ESI, EAX    ; Сохраняем адрес строки
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 5
+lab_8.asm
+
+
+
+    229
+    230					     ; Подсчет длины строки
+    231	00000181  8B F8			     MOV EDI, EAX
+    232	00000183  32 C0			     xor AL, AL
+    233	00000185  B9 FFFFFFFF		     MOV ECX, -1
+    234	0000018A  F2> AE		     REPNE SCASB     ; Ищем	0
+    235	0000018C  F7 D1			     NOT ECX
+    236	0000018E  49			     DEC ECX	     ; В ECX теперь длина строки
+    237
+    238					     ; Вывод: WriteConsoleA(hStdOut, Addr,	Len, AddrWritten, 0)
+    239	0000018F  6A 00			     PUSH 0
+    240	00000191  68 00000216r		     PUSH OFFSET BytesWritten
+    241	00000196  51			     PUSH ECX	     ; Длина
+    242	00000197  56			     PUSH ESI	     ; Адрес текста
+    243	00000198  FF 35	00000212r	     PUSH hStdOut    ; Хендл консоли
+    244	0000019E  E8 00000000e		     CALL WriteConsoleA
+    245
+    246	000001A3  59			     POP ECX
+    247	000001A4  5E			     POP ESI
+    248	000001A5  5F			     POP EDI
+1   249	000001A6  C3				 RET	 00000h
+    250	000001A7			 PrintStr ENDP
+    251
+    252	000001A7			 Skip_Whitespace PROC
+    253	000001A7			 Skip_WS_Loop:
+    254	000001A7  8A 06			     MOV AL, [ESI]
+    255	000001A9  3C 20			     CMP AL, SPACE
+    256	000001AB  74 0D	90 90 90 90	     JE	 Skip_WS_Next
+    257	000001B1  3C 09			     CMP AL, TAB
+    258	000001B3  74 05	90 90 90 90	     JE	 Skip_WS_Next
+1   259	000001B9  C3				 RET	 00000h
+    260	000001BA			 Skip_WS_Next:
+    261	000001BA  46			     INC ESI
+    262	000001BB  EB EA			     JMP Skip_WS_Loop
+    263	000001BD			 Skip_Whitespace ENDP
+    264
+    265	000001BD			 Parse_Token PROC
+    266	000001BD  80 3E	22		     CMP BYTE PTR [ESI], QUOTE
+    267	000001C0  75 23	90 90 90 90	     JNE Parse_Token_Simple
+    268	000001C6  46			     INC ESI
+    269	000001C7			 Parse_Token_Quote_Loop:
+    270	000001C7  8A 06			     MOV AL, [ESI]
+    271	000001C9  3C 00			     CMP AL, NULL
+    272	000001CB  74 38	90 90 90 90	     JE	 Parse_Token_End
+    273	000001D1  3C 22			     CMP AL, QUOTE
+    274	000001D3  74 0A	90 90 90 90	     JE	 Parse_Token_Quote_Done
+    275	000001D9  88 07			     MOV [EDI],	AL
+    276	000001DB  46			     INC ESI
+    277	000001DC  47			     INC EDI
+    278	000001DD  EB E8			     JMP Parse_Token_Quote_Loop
+    279	000001DF			 Parse_Token_Quote_Done:
+    280	000001DF  46			     INC ESI
+    281	000001E0  EB 23	90 90 90	     JMP Parse_Token_End
+    282	000001E5			 Parse_Token_Simple:
+    283	000001E5  8A 06			     MOV AL, [ESI]
+    284	000001E7  3C 00			     CMP AL, NULL
+    285	000001E9  74 1A	90 90 90 90	     JE	 Parse_Token_End
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 6
+lab_8.asm
+
+
+
+    286	000001EF  3C 20			     CMP AL, SPACE
+    287	000001F1  74 12	90 90 90 90	     JE	 Parse_Token_End
+    288	000001F7  3C 09			     CMP AL, TAB
+    289	000001F9  74 0A	90 90 90 90	     JE	 Parse_Token_End
+    290	000001FF  88 07			     MOV [EDI],	AL
+    291	00000201  46			     INC ESI
+    292	00000202  47			     INC EDI
+    293	00000203  EB E0			     JMP Parse_Token_Simple
+    294	00000205			 Parse_Token_End:
+    295	00000205  C6 07	00		     MOV BYTE PTR [EDI], 0
+1   296	00000208  C3				 RET	 00000h
+    297	00000209			 Parse_Token ENDP
+    298
+    299					 END START
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 7
 Symbol Table
 
 
@@ -242,9 +335,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??date				  Text	 "11-19-25"
+??date				  Text	 "11-23-25"
 ??filename			  Text	 "lab_8	  "
-??time				  Text	 "15:20:29"
+??time				  Text	 "15:31:48"
 ??version			  Number 0500
 @32Bit				  Text	 1
 @CodeSize			  Text	 0
@@ -258,50 +351,64 @@ Symbol Name			  Type	 Value
 @curseg				  Text	 _TEXT
 @data				  Text	 FLAT
 @stack				  Text	 FLAT
-Copy_Arg_2_NoQuote_Loop		  Near32 FLAT:0087
-Copy_Arg_2_No_Quote		  Near32 FLAT:0087
-Copy_Arg_2_Quote_End		  Near32 FLAT:0081
-Copy_Arg_2_Quote_Loop		  Near32 FLAT:005C
-Copy_Arg_3_NoQuote_Loop		  Near32 FLAT:00F0
-Copy_Arg_3_No_Quote		  Near32 FLAT:00F0
-Copy_Arg_3_Quote_End		  Near32 FLAT:00EA
-Copy_Arg_3_Quote_Loop		  Near32 FLAT:00C5
-END_FAIL			  Near32 FLAT:014C
-End_Copy_2			  Near32 FLAT:00A7
-End_Copy_3			  Near32 FLAT:0110
+BytesWritten			  Dword	 FLAT:0216
+Do_Move				  Near32 FLAT:00D3
+Err_Path_Access			  Near32 FLAT:0166
+Err_Source_Missing		  Near32 FLAT:0148
+Err_Target_Exists		  Near32 FLAT:0157
 ExitProcess			  Near16 ----:---- Extern
 FALSE				  Number 0000
+Final_Err_Exit			  Near32 FLAT:0175
+FlagBuf				  Byte	 FLAT:0208
 GetCommandLineA			  Near16 ----:---- Extern
 GetLastError			  Near16 ----:---- Extern
-MoveFileA			  Near16 ----:---- Extern
+GetStdHandle			  Near16 ----:---- Extern
+Handle_Move_Error		  Near32 FLAT:010E
+Handle_Path_Error		  Near32 FLAT:00FD
+MOVEFILE_REPLACE_EXISTING	  Number 0001
+MoveFileExA			  Near16 ----:---- Extern
+MsgExistErr			  Byte	 FLAT:0258
+MsgPathErr			  Byte	 FLAT:028E
+MsgSrcError			  Byte	 FLAT:0239
+MsgSuccess			  Byte	 FLAT:021A
+MsgUnknown			  Byte	 FLAT:02B6
 NULL				  Number 0000
-NewPath				  Byte	 FLAT:0100
+NewPath				  Byte	 FLAT:0104
+Parse_Arg_1			  Near32 FLAT:005A
+Parse_Arg_2			  Near32 FLAT:0072
+Parse_Arg_3			  Near32 FLAT:008A
+Parse_Args_Done			  Near32 FLAT:00A2
+Parse_Token			  Near32 FLAT:01BD
+Parse_Token_End			  Near32 FLAT:0205
+Parse_Token_Quote_Done		  Near32 FLAT:01DF
+Parse_Token_Quote_Loop		  Near32 FLAT:01C7
+Parse_Token_Simple		  Near32 FLAT:01E5
+PrintStr			  Near32 FLAT:017C
 QUOTE				  Number 0022
 SPACE				  Number 0020
 START				  Near32 FLAT:0000
-Skip_Prog_End			  Near32 FLAT:0041
-Skip_Prog_NoQuote_End		  Near32 FLAT:0041
-Skip_Prog_NoQuote_Loop		  Near32 FLAT:002C
-Skip_Prog_No_Quote		  Near32 FLAT:002C
-Skip_Prog_Quote_End		  Near32 FLAT:0026
-Skip_Prog_Quote_Loop		  Near32 FLAT:0011
-Skip_Spaces_1			  Near32 FLAT:0041
-Skip_Spaces_1_End		  Near32 FLAT:004D
-Skip_Spaces_1_Loop		  Near32 FLAT:0041
-Skip_Spaces_2_End		  Near32 FLAT:00B6
-Skip_Spaces_2_Loop		  Near32 FLAT:00AA
-SourcePath			  Byte	 FLAT:0000
-TRUE				  Number 0001
-Turbo Assembler	 Version 5.0	    11-19-25 15:20:29	    Page 6
+STD_OUTPUT_HANDLE		  Number -000B
+Skip_Prog_NoQuote		  Near32 FLAT:003D
+Turbo Assembler	 Version 5.0	    11-23-25 15:31:48	    Page 8
 Symbol Table
 
 
 
+Skip_Prog_Quote_End		  Near32 FLAT:0037
+Skip_Prog_Quote_Loop		  Near32 FLAT:0022
+Skip_WS_Loop			  Near32 FLAT:01A7
+Skip_WS_Next			  Near32 FLAT:01BA
+Skip_Whitespace			  Near32 FLAT:01A7
+SourcePath			  Byte	 FLAT:0000
+TAB				  Number 0009
+TRUE				  Number 0001
+WriteConsoleA			  Near16 ----:---- Extern
+hStdOut				  Dword	 FLAT:0212
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
-  _DATA				  32  0200 Dword  Public  DATA
+  _DATA				  32  02D4 Dword  Public  DATA
 FLAT				  Group
-_TEXT				  32  0157 Dword  Public  CODE
+_TEXT				  32  0209 Dword  Public  CODE
 
