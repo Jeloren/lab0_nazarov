@@ -49,11 +49,7 @@ set_overwrite:
 
 do_syscall:
     ; --- 3. Вызов sys_renameat2 (номер 316) ---
-    ; Прототип: 
-    ; int renameat2(int olddirfd, const char *oldpath, 
-    ;               int newdirfd, const char *newpath, unsigned int flags);
     
-    ; Аргументы syscall (x64):
     ; RAX = 316
     ; RDI = olddirfd (-100)
     ; RSI = oldpath  (уже лежит в RSI из стека, но мы его перекладывали, проверим)
@@ -75,7 +71,7 @@ do_syscall:
 
     ; --- 4. Проверка результата ---
     test rax, rax
-    js move_failed      ; Ошибка (например, файл существует и флаг=0)
+    js move_failed      ; Ошибка
 
     ; Успех
     mov rax, 1

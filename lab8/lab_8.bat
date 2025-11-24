@@ -6,7 +6,6 @@ ECHO [1] Assembling lab_8.asm...
 if exist lab_8.obj del lab_8.obj
 if exist lab_8.exe del lab_8.exe
 
-:: Запуск TASM
 tasm32 /ml /l lab_8.asm > tasm_log.txt 2>&1
 IF ERRORLEVEL 1 (
     ECHO Error in TASM!
