@@ -11,9 +11,8 @@ SPACE EQU 20H ; Пробел
 TAB   EQU 09H ; Табуляция
 NULL  EQU 0
 MOVEFILE_REPLACE_EXISTING EQU 1
-GENERIC_WRITE    EQU 40000000h
-OPEN_EXISTING    EQU 3
-FILE_SHARE_WRITE EQU 2
+STD_OUTPUT_HANDLE EQU -11  ; Дескриптор вывода консоли
+
 .DATA
     SourcePath DB 260 DUP (0)
     NewPath    DB 260 DUP (0)
@@ -22,7 +21,6 @@ FILE_SHARE_WRITE EQU 2
     ; --- Переменные для консоли ---
     hStdOut      DD ?              ; Хранитель дескриптора консоли
     BytesWritten DD ?              ; Сюда WriteConsole запишет сколько байт вывела
-    ConOutName   DB "CONOUT$", 0   ; Имя файла консоли вывода
     
     ; --- Сообщения ---
     MsgSuccess   DB "OK: File moved successfully.", 0Dh, 0Ah, 0
@@ -33,16 +31,10 @@ FILE_SHARE_WRITE EQU 2
     
 .CODE
 START:
-    ; --- Открываем CONOUT$ через CreateFile ---
-    PUSH 0                   ; hTemplateFile
-    PUSH 0                   ; dwFlagsAndAttributes
-    PUSH OPEN_EXISTING       ; dwCreationDisposition
-    PUSH 0                   ; lpSecurityAttributes
-    PUSH FILE_SHARE_WRITE    ; dwShareMode
-    PUSH GENERIC_WRITE       ; dwDesiredAccess
-    PUSH OFFSET ConOutName   ; lpFileName
-    CALL CreateFileA
-    MOV hStdOut, EAX         ; Сохраняем дескриптор
+    ; --- 0. Инициализация консоли ---
+    PUSH STD_OUTPUT_HANDLE
+    CALL GetStdHandle
+    MOV hStdOut, EAX        ; Сохраняем дескриптор, чтобы использовать при выводе
 
     ; --- 1. Получение командной строки ---
     CALL GetCommandLineA
@@ -204,13 +196,13 @@ PrintStr PROC
     NOT ECX
     DEC ECX         ; В ECX теперь длина строки
     
-    ; Вывод: WriteFile(hFile, lpBuffer, nBytes, lpBytesWritten, lpOverlapped)
-    PUSH 0                   ; lpOverlapped (0)
-    PUSH OFFSET BytesWritten ; Куда записать кол-во байт
-    PUSH ECX                 ; Длина
-    PUSH ESI                 ; Адрес текста
-    PUSH hStdOut             ; Хендл (от CreateFile)
-    CALL WriteFile
+    ; Вывод: WriteConsoleA(hStdOut, Addr, Len, AddrWritten, 0)
+    PUSH 0
+    PUSH OFFSET BytesWritten
+    PUSH ECX        ; Длина
+    PUSH ESI        ; Адрес текста
+    PUSH hStdOut    ; Хендл консоли
+    CALL WriteConsoleA
     
     POP ECX
     POP ESI

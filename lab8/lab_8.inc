@@ -5,6 +5,7 @@ extrn ExitProcess:near
 extrn GetCommandLineA:near
 extrn MoveFileExA:near
 extrn GetLastError:near
-; --- НОВЫЕ ФУНКЦИИ ДЛЯ ВЫВОДА ---
-extrn GetStdHandle:near
-extrn WriteConsoleA:near
+; extrn GetStdHandle:near
+; extrn WriteConsoleA:near
+extrn WriteFile:near
+extrn CreateFileA:near
