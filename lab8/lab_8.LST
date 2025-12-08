@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 1
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 1
 lab_8.asm
 
 
@@ -60,7 +60,7 @@ lab_8.asm
      55		  69 6C	65 20 65 78 69+
      56		  73 74	73 20 28 75 73+
      57		  65 20	66 6C 61 67 20+
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 2
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 2
 lab_8.asm
 
 
@@ -122,7 +122,7 @@ lab_8.asm
     112	00000059  3C 20			     CMP AL, SPACE
     113	0000005B  74 0F	90 90 90 90	     JE	 Parse_Arg_1
     114	00000061  3C 09			     CMP AL, TAB
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 3
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 3
 lab_8.asm
 
 
@@ -184,7 +184,7 @@ lab_8.asm
     169	00000108  6A 00			     PUSH 0
     170	0000010A  E8 00000000e		     CALL ExitProcess
     171
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 4
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 4
 lab_8.asm
 
 
@@ -246,7 +246,7 @@ lab_8.asm
     226					 ; =============================================================
     227					 ; ПРОЦЕДУРЫ ПОМОЩНИКИ
     228					 ; =============================================================
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 5
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 5
 lab_8.asm
 
 
@@ -308,7 +308,7 @@ lab_8.asm
     283	000001E5  74 0A	90 90 90 90	     JE	 Parse_Token_Quote_Done
     284	000001EB  88 07			     MOV [EDI],	AL
     285	000001ED  46			     INC ESI
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 6
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 6
 lab_8.asm
 
 
@@ -336,7 +336,7 @@ lab_8.asm
     306	0000021B			 Parse_Token ENDP
     307
     308					 END START
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 7
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 7
 Symbol Table
 
 
@@ -344,9 +344,9 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??date				  Text	 "11-24-25"
+??date				  Text	 "12-05-25"
 ??filename			  Text	 "lab_8	  "
-??time				  Text	 "08:54:00"
+??time				  Text	 "07:29:27"
 ??version			  Number 0500
 @32Bit				  Text	 1
 @CodeSize			  Text	 0
@@ -398,7 +398,7 @@ Parse_Token_Quote_Loop		  Near32 FLAT:01D9
 Parse_Token_Simple		  Near32 FLAT:01F7
 PrintStr			  Near32 FLAT:018E
 QUOTE				  Number 0022
-Turbo Assembler	 Version 5.0	    11-24-25 08:54:00	    Page 8
+Turbo Assembler	 Version 5.0	    12-05-25 07:29:27	    Page 8
 Symbol Table
 
 
